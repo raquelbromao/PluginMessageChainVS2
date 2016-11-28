@@ -1,0 +1,13 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: MessageChainFOP
+Bundle-SymbolicName: plugin.raquel.fop.messagechain.vs2;singleton:=true
+Bundle-Version: 1.0.0.qualifier
+Bundle-Activator: plugin.raquel.fop.messagechain.vs2.Activator
+Require-Bundle: org.eclipse.ui,
+ org.eclipse.core.runtime
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Bundle-ActivationPolicy: lazy
+Import-Package: org.eclipse.core.resources,
+ org.eclipse.jdt.core,
+ org.eclipse.jdt.core.dom
