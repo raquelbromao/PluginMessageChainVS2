@@ -21,21 +21,21 @@
     <extension point = "org.eclipse.ui.actionSets">
         <actionSet
             id="org.eclipse.examples.helloworld.HelloWorldActionSet"
-            label="MessageChain"
+            label="MessageChainVS2"
 	    visible="true"
-	    description="Show all message chains in your class">
+	    description="Show all message chains in FOP">
 	    <menu
 		id="org.eclipse.examples.helloworld.HelloWorldMenu"
-		label="MessageChain">
+		label="MessageChainVS2">
 		<separator name="samples"/>
 	    </menu>
 	    <action id="org.eclipse.examples.helloworld.actions.HelloWorldAction"
 		menubarPath="org.eclipse.examples.helloworld.HelloWorldMenu/samples"
 		toolbarPath="Normal"			
-		label="MessageChain"
-		tooltip="Show all the message chains in your class"
+		label="MessageChainVS2"
+		tooltip="Show all the message chains in FOP"
 		icon="icons/helloworld.gif"
-		class="plugin.raquel.examples.helloworld.HelloWorldAction"/>
+		class="plugin.raquel.fop.messagechain.vs2.getProject"/>
         </actionSet>
     </extension>
     <extension
