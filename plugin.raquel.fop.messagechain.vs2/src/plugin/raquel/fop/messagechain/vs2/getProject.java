@@ -6,7 +6,6 @@ import org.eclipse.wb.swt.SWTResourceManager;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.jface.action.IAction;
-import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Button;
@@ -59,6 +58,9 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		Button btnCancel = new Button(shlMessageChain, SWT.NONE);
 		btnCancel.setBounds(456, 50, 75, 25);
 		btnCancel.setText("Cancel");
+		
+		shlMessageChain.pack();
+		shlMessageChain.open();
 	}
 
 	// IActionDelegate method
