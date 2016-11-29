@@ -25,22 +25,25 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		return projects;
 	}
 	
-	/** Run the action. Display the Hello World message
-	 */		
+	/**
+	 * @wbp.parser.entryPoint
+	 */
 	public void run(IAction proxyAction) {
 		// proxyAction has UI information from manifest file (ignored)
 		shlMessageChain = new Shell();
-		shlMessageChain.setSize(547, 300);
+		shlMessageChain.setBackground(SWTResourceManager.getColor(240, 240, 240));
+		shlMessageChain.setToolTipText("");
+		shlMessageChain.setSize(670, 114);
 		shlMessageChain.setText("Message Chain Plugin");
 		shlMessageChain.setLayout(null);
 		
 		Label lbl = new Label(shlMessageChain, SWT.NONE);
 		lbl.setFont(SWTResourceManager.getFont("Segoe UI", 10, SWT.NORMAL));
-		lbl.setBounds(25, 10, 394, 15);
+		lbl.setBounds(25, 10, 394, 17);
 		lbl.setText("Message Chain: all methods in workspace!");
 
 		Combo comboProjects = new Combo(shlMessageChain, SWT.NONE);
-		comboProjects.setBounds(25, 27, 425, 23);
+		comboProjects.setBounds(25, 31, 425, 23);
 
 		// Gets all projects from workspace
 		IProject[] projects = getAllProjects();
