@@ -34,7 +34,7 @@
 		toolbarPath="Normal"			
 		label="MessageChainVS2"
 		tooltip="Show all the message chains in FOP"
-		icon="icons/helloworld.gif"
+		icon="icons/plugin.gif"
 		class="plugin.raquel.fop.messagechain.vs2.getProject"/>
         </actionSet>
     </extension>
