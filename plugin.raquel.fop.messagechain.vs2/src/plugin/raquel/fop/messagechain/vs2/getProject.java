@@ -8,8 +8,13 @@ import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IPackageFragment;
 import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTParser;
+import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.swt.SWT;
@@ -19,13 +24,15 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Text;
 
 public class getProject implements IWorkbenchWindowActionDelegate {
 	IWorkbenchWindow activeWindow = null;
 	public Shell shlMessageChain;
 	IProject projectSelection;
-	IPackageFragment[] packagesSelection;
-	
+	IPackageFragment[] packageSelection;
+	private Text results;
+
 	/**
 	 * Lista os projetos da Workspace em utilização
 	 */
@@ -33,86 +40,134 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		IProject[] projects = ResourcesPlugin.getWorkspace().getRoot().getProjects();
 		return projects;
 	}
-	
+
+	protected void analyseClass(ICompilationUnit classe) {
+		// ICompilationUnit unit == class
+		// now create the AST for the ICompilationUnits
+		CompilationUnit parse = parse(classe);
+
+		// Calls the method for visit node in AST e return your information*/
+		MethodDeclarationVisitor visitor3 = new MethodDeclarationVisitor();
+		parse.accept(visitor3);
+
+		results.append("\t\t#### METHODINVOCATION [MI] LIST\n");
+		// Write in the screen: IfStatement and your type
+		for (MethodDeclaration node : visitor3.getExpression()) {
+			// Take expression and converts to String, write in the screen
+			String mi = node.getName().toString();
+			results.append("\t\t\tMD: [" + mi + "]\n");
+		}
+	}
+
+	/**
+	 * Reads a ICompilationUnit and creates the AST DOM for manipulating the
+	 * Java source file
+	 *
+	 * @param unit
+	 * @return
+	 */
+	private static CompilationUnit parse(ICompilationUnit unit) {
+		ASTParser parser = ASTParser.newParser(AST.JLS8);
+		parser.setKind(ASTParser.K_COMPILATION_UNIT);
+		parser.setSource(unit);
+		parser.setResolveBindings(true);
+		return (CompilationUnit) parser.createAST(null);
+	}
+
 	/**
 	 * Gera a janela 1 do Plug-in
+	 * 
 	 * @wbp.parser.entryPoint
 	 */
 	public void run(IAction proxyAction) {
 		// proxyAction has UI information from manifest file (ignored)
 		// constrói a janela principal
 		shlMessageChain = new Shell();
-		shlMessageChain.setBackground(SWTResourceManager.getColor(240, 240, 240));
-		shlMessageChain.setToolTipText("");
-		shlMessageChain.setSize(670, 114);
-		shlMessageChain.setText("Message Chain Plugin");
 		shlMessageChain.setLayout(null);
-		
-		// adiciona texto na janela principal
-		Label lbl = new Label(shlMessageChain, SWT.NONE);
-		lbl.setFont(SWTResourceManager.getFont("Segoe UI", 10, SWT.NORMAL));
-		lbl.setBounds(25, 10, 394, 17);
-		lbl.setText("Message Chain: all methods in workspace!");
 
-		// adiciona tipo combo com todos os projetos da workspace
+		Label lblPrincipal = new Label(shlMessageChain, SWT.NONE);
+		lblPrincipal.setFont(SWTResourceManager.getFont("@Microsoft JhengHei", 11, SWT.BOLD));
+		lblPrincipal.setBounds(10, 0, 184, 28);
+		lblPrincipal.setText("Message Chain Plug-in");
+
+		Label lblSelectTheProject = new Label(shlMessageChain, SWT.NONE);
+		lblSelectTheProject.setFont(SWTResourceManager.getFont("@Microsoft JhengHei", 10, SWT.NORMAL));
+		lblSelectTheProject.setBounds(10, 34, 112, 15);
+		lblSelectTheProject.setText("Select the project:");
+
+		results = new Text(shlMessageChain, SWT.MULTI | SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
+		results.setBounds(10, 69, 559, 376);
+
 		Combo comboProjects = new Combo(shlMessageChain, SWT.NONE);
-		comboProjects.setBounds(25, 31, 425, 23);
+		comboProjects.setBounds(128, 31, 441, 23);
 
-		// Gets all projects from workspace e insere no combo
+		// Gets all projects from workspace
 		IProject[] projects = getAllProjects();
 		for (int i = 0; i < projects.length; i++) {
 			comboProjects.add(projects[i].getName());
 		}
 
-		// deixa como pré-selecionado o projeto no combo[0]
 		comboProjects.select(0);
-		
-		// adiciona botões de APPLY e CANCEL
-		// APPLY
-		Button btnApplyProjects = new Button(shlMessageChain, SWT.NONE);
-		btnApplyProjects.setSelection(true);
-		btnApplyProjects.setBounds(456, 25, 75, 25);
-		btnApplyProjects.setText("Apply");
-		// CANCEL
-		Button btnCancel = new Button(shlMessageChain, SWT.NONE);
-		btnCancel.setBounds(456, 50, 75, 25);
-		btnCancel.setText("Cancel");
-		
-		// adiciona evento ao clicar nos botões de APPLY e CANCEL
-		// APPLY
-		btnApplyProjects.addSelectionListener(new SelectionAdapter() {
+
+		Button btnApply = new Button(shlMessageChain, SWT.NONE);
+		btnApply.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
 				try {
-					// Acha a raiz da workspace para criar/carregar o IProject selecionado pelo usuário
+					// LIMPA A JANELA DOS RESULTADOS QUANDO SELECIONADO UM NOVO
+					// PROJETO
+					results.setText("");
+
+					// Acha a raiz da workspace para criar/carregar o IProject
+					// selecionado pelo usuário
 					String nameProject = comboProjects.getItem(comboProjects.getSelectionIndex());
 					IWorkspace workspace = ResourcesPlugin.getWorkspace();
 					IWorkspaceRoot root = workspace.getRoot();
 
 					// Pega a raiz do projeto selecionado pelo usuário
 					projectSelection = root.getProject(nameProject);
+					results.append("## NAME OF PROJECT: " + projectSelection.getName() + "\n");
+					results.append("## PATH OF PROJECT: " + projectSelection.getFullPath() + "\n");
 					projectSelection.open(null);
 
 					// Gera a lista de todas as classes do projeto selecionado
-					// com o tipo IPackageFragment que obtenho todas as classes de um projeto
-					// IProject -> IPackageFragment -> ICompilationUnit -> arq.java
-					packagesSelection = JavaCore.create(projectSelection).getPackageFragments();
+					// com o tipo IPackageFragment que obtenho todas as classes
+					// de um projeto
+					// IProject -> IPackageFragment -> ICompilationUnit ->
+					// arq.java
+					packageSelection = JavaCore.create(projectSelection).getPackageFragments();
 
-					// envia o projeto selecionado para a nova janela (getMC)
-					getMC.main(null,packagesSelection);
+					for (IPackageFragment mypackage : packageSelection) {
+						for (final ICompilationUnit classe : mypackage.getCompilationUnits()) {
+							results.append("\n\t### NAME OF CLASS: " + classe.getElementName() + "\n");
+							analyseClass(classe);
+						}
+					}
 				} catch (CoreException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
 		});
-		//CANCEL
-		btnCancel.addSelectionListener(new SelectionAdapter() {
+		btnApply.setBounds(584, 29, 75, 25);
+		btnApply.setText("Apply");
+
+		Button btnClear = new Button(shlMessageChain, SWT.NONE);
+		btnClear.addSelectionListener(new SelectionAdapter() {
+			public void widgetSelected(SelectionEvent event) {
+				results.setText("");
+			}
+		});
+		btnClear.setText("Clear");
+		btnClear.setBounds(584, 63, 75, 25);
+
+		Button btnClose = new Button(shlMessageChain, SWT.NONE);
+		btnClose.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
 				shlMessageChain.close();
 			}
 		});
-		
-		// comando para abertura da janela corretamente
+		btnClose.setBounds(584, 96, 75, 25);
+		btnClose.setText("Close");
+
 		shlMessageChain.pack();
 		shlMessageChain.open();
 	}
@@ -121,14 +176,14 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 	public void selectionChanged(IAction proxyAction, ISelection selection) {
 		// do nothing, action is not dependent on the selection
 	}
-	
+
 	// IWorkbenchWindowActionDelegate method
 	public void init(IWorkbenchWindow window) {
 		activeWindow = window;
 	}
-	
+
 	// IWorkbenchWindowActionDelegate method
 	public void dispose() {
-		//  nothing to do
+		// nothing to do
 	}
 }
