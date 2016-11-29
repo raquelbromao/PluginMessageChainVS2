@@ -90,8 +90,6 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 
 					// Pega a raiz do projeto selecionado pelo usuário
 					projectSelection = root.getProject(nameProject);
-					//results.append("## NAME OF PROJECT: " + projectSelection.getName() + "\n");
-					//results.append("## PATH OF PROJECT: " + projectSelection.getFullPath() + "\n");
 					projectSelection.open(null);
 
 					// Gera a lista de todas as classes do projeto selecionado
@@ -99,6 +97,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 					// IProject -> IPackageFragment -> ICompilationUnit -> arq.java
 					packagesSelection = JavaCore.create(projectSelection).getPackageFragments();
 
+					// envia o projeto selecionado para a nova janela (getMC)
 					getMC.main(null,packagesSelection);
 				} catch (CoreException e) {
 					// TODO Auto-generated catch block
