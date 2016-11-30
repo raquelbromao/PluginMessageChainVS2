@@ -18,6 +18,7 @@ import org.eclipse.jdt.core.dom.ASTParser;
 import org.eclipse.jdt.core.dom.Block;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
+import org.eclipse.jdt.core.dom.MethodInvocation;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.swt.SWT;
@@ -51,18 +52,16 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		CompilationUnit parse = parse(classe);
 
 		// Calls the method for visit node in AST e return your information*/
-		MethodDeclarationVisitor visitor3 = new MethodDeclarationVisitor();
-		parse.accept(visitor3);
+		MethodDeclarationVisitor visitor = new MethodDeclarationVisitor();
+		parse.accept(visitor);
 
 		results.append("\t\t#### METHODS DECLARATION\n");
 		// Write in the screen: IfStatement and your type
-		for (MethodDeclaration node : visitor3.getExpression()) {
+		for (MethodDeclaration node : visitor.getExpression()) {
 			// Take expression and converts to String, write in the screen
-			String mi = node.getName().toString();
-			results.append("\t\t\tMD: [" + mi + "]\n");
+			String md = node.getName().toString();
+			results.append("\t\t\tMD: [" + md + "]\n");
 			results.append("\t\t\t\tParameters: "+node.parameters().toString()
-					+"\n\t\t\t\tBody Type: "+node.getBody().getNodeType()
-					+"\n\t\t\t\tBody StartPosition: "+node.getBody().getStartPosition()
 					+"\n");
 			MD.add(node);
 		}
@@ -72,7 +71,19 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 			String aux = MD.get(i).getBody().toString();
 			results.append("\t\t\t"+aux+"\n");
 			char body[] = aux.toCharArray();
-			parseBlock(body);
+			Block parse2 = parseBlock(body);
+			
+			// Calls the method for visit node in AST e return your information*/
+			MethodInvocationVisitor visitor2 = new MethodInvocationVisitor();
+			parse2.accept(visitor2);
+
+			results.append("\t\t#### METHODS DECLARATION\n");
+			// Write in the screen: IfStatement and your type
+			for (MethodInvocation node : visitor2.getExpression()) {
+				// Take expression and converts to String, write in the screen
+				String mi = node.getName().toString();
+				results.append("\t\t\tMI: [" + mi + "]\n");
+			}
 		}
 
 		
@@ -105,7 +116,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 
 	private static Block parseBlock(char[] unit) {
 		ASTParser parser = ASTParser.newParser(AST.JLS8);
-		parser.setKind(ASTParser.K_COMPILATION_UNIT);
+		parser.setKind(ASTParser.K_STATEMENTS);
 		parser.setSource(unit);
 		parser.setResolveBindings(true);
 		return (Block) parser.createAST(null);
