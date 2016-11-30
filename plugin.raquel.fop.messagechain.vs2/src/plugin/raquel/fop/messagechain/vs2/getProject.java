@@ -3,6 +3,7 @@ package plugin.raquel.fop.messagechain.vs2;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.IWorkbenchWindowActionDelegate;
 import org.eclipse.wb.swt.SWTResourceManager;
+import java.util.ArrayList;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.IWorkspaceRoot;
@@ -12,7 +13,9 @@ import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IPackageFragment;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTParser;
+import org.eclipse.jdt.core.dom.Block;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jface.action.IAction;
@@ -32,6 +35,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 	IProject projectSelection;
 	IPackageFragment[] packageSelection;
 	private Text results;
+	static ArrayList<MethodDeclaration> MD = new ArrayList<MethodDeclaration>();
 
 	/**
 	 * Lista os projetos da Workspace em utilização
@@ -50,13 +54,50 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		MethodDeclarationVisitor visitor3 = new MethodDeclarationVisitor();
 		parse.accept(visitor3);
 
-		results.append("\t\t#### METHODINVOCATION [MI] LIST\n");
+		results.append("\t\t#### METHODS DECLARATION\n");
 		// Write in the screen: IfStatement and your type
 		for (MethodDeclaration node : visitor3.getExpression()) {
 			// Take expression and converts to String, write in the screen
 			String mi = node.getName().toString();
 			results.append("\t\t\tMD: [" + mi + "]\n");
+			results.append("\t\t\t\tParameters: "+node.parameters().toString()
+					+"\n\t\t\t\tBody Type: "+node.getBody().getNodeType()
+					+"\n\t\t\t\tBody StartPosition: "+node.getBody().getStartPosition()
+					+"\n");
+			MD.add(node);
 		}
+		
+		//results.append("\n\t\t[ARRAY COM METHODSDECLARATION]\n");
+		//for (int i = 0; i < MD.size(); i++) {
+			//esults.append("\t\t\t"+MD.get(i).getName().toString()+"\n");			
+		//}
+		
+		// Chama função para análise do corpo de cada MD da classe
+		analyseBodyMD(MD);
+	}
+
+	private void analyseBodyMD(ArrayList<MethodDeclaration> node) {
+		ArrayList<Block> bodyMD =  new ArrayList<Block>();
+		ArrayList<ASTNode> statementsBody = new ArrayList<ASTNode>();
+		
+		// Adicionei todos os Bodys dos MD numa lista
+		for (int i = 0; i < node.size(); i++) {
+			bodyMD.add(node.get(i).getBody());
+			results.append("\n\t\t\t\tBODY STATEMENT[0]: "+node.get(i).getBody().statements().get(0).toString()+"\n");
+		}
+		
+		for(int j = 0; j < bodyMD.size(); j++) {
+			statementsBody.add((ASTNode) bodyMD.get(j).statements().get(j));
+		}
+		
+		analyseStatementsBody(statementsBody);		
+	}
+
+	private void analyseStatementsBody(ArrayList<ASTNode> node) {
+		for(ASTNode c : node) {
+			if (c.getNodeType()== 32)
+			  results.append("\n\t\t\t\t\tMI: "+c.toString()+"\n");
+		}		
 	}
 
 	/**
@@ -115,6 +156,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 				try {
 					// LIMPA A JANELA DOS RESULTADOS QUANDO SELECIONADO UM NOVO
 					// PROJETO
+					MD.clear();
 					results.setText("");
 
 					// Acha a raiz da workspace para criar/carregar o IProject
@@ -142,6 +184,8 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 							analyseClass(classe);
 						}
 					}
+					
+					
 				} catch (CoreException e) {
 					e.printStackTrace();
 				}
@@ -153,6 +197,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		Button btnClear = new Button(shlMessageChain, SWT.NONE);
 		btnClear.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
+				MD.clear();
 				results.setText("");
 			}
 		});
@@ -162,6 +207,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		Button btnClose = new Button(shlMessageChain, SWT.NONE);
 		btnClose.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
+				MD.clear();
 				shlMessageChain.close();
 			}
 		});
