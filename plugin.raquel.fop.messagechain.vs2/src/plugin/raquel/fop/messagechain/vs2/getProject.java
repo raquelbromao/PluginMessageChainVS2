@@ -67,15 +67,21 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 			MD.add(node);
 		}
 		
-		//results.append("\n\t\t[ARRAY COM METHODSDECLARATION]\n");
-		//for (int i = 0; i < MD.size(); i++) {
-			//esults.append("\t\t\t"+MD.get(i).getName().toString()+"\n");			
-		//}
+		results.append("\n\t\t[ARRAY COM METHODSDECLARATION]\n");
+		for (int i = 0; i < MD.size(); i++) {			
+			String aux = MD.get(i).getBody().toString();
+			results.append("\t\t\t"+aux+"\n");
+			char body[] = aux.toCharArray();
+			parseBlock(body);
+		}
+
 		
 		// Chama função para análise do corpo de cada MD da classe
-		analyseBodyMD(MD);
+		// Analisar cada Statement do corpo não funciona, achar outro jeito
+		//analyseBodyMD(MD);
 	}
 
+	@SuppressWarnings("unused")
 	private void analyseBodyMD(ArrayList<MethodDeclaration> node) {
 		ArrayList<Block> bodyMD =  new ArrayList<Block>();
 		ArrayList<ASTNode> statementsBody = new ArrayList<ASTNode>();
@@ -88,17 +94,23 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		
 		for(int j = 0; j < bodyMD.size(); j++) {
 			statementsBody.add((ASTNode) bodyMD.get(j).statements().get(j));
+			results.append("\n\t\t\t\tSTATEMENT["+j+"]: "+statementsBody.get(j).toString()
+					+"\n\t\t\t\t\tType: "+statementsBody.get(j).getNodeType()
+					+"\n");
 		}
 		
-		analyseStatementsBody(statementsBody);		
+		//DELATADO
+		//analyseStatementsBody(statementsBody);		
 	}
 
-	private void analyseStatementsBody(ArrayList<ASTNode> node) {
-		for(ASTNode c : node) {
-			if (c.getNodeType()== 32)
-			  results.append("\n\t\t\t\t\tMI: "+c.toString()+"\n");
-		}		
+	private static Block parseBlock(char[] unit) {
+		ASTParser parser = ASTParser.newParser(AST.JLS8);
+		parser.setKind(ASTParser.K_COMPILATION_UNIT);
+		parser.setSource(unit);
+		parser.setResolveBindings(true);
+		return (Block) parser.createAST(null);
 	}
+	
 
 	/**
 	 * Reads a ICompilationUnit and creates the AST DOM for manipulating the
