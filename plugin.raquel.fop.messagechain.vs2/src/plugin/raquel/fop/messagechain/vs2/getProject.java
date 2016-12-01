@@ -45,9 +45,10 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 	IPackageFragment[] packageSelection;
 	private static Text results;
 	static Map<String, ArrayList<String>> m = new HashMap<String, ArrayList<String>>();
+	static Map<String, ArrayList<String>> mdTOmi = new HashMap<String, ArrayList<String>>();
 	static ArrayList<ICompilationUnit> CLA = new ArrayList<ICompilationUnit>();
-	static ArrayList<String> MD = new ArrayList<String>();
-	static ArrayList<MethodInvocation> MI = new ArrayList<MethodInvocation>();
+	static ArrayList<MethodDeclaration> MD2 = new ArrayList<MethodDeclaration>();
+	static ArrayList<MethodInvocation> MI2 = new ArrayList<MethodInvocation>();
 
 	/**
 	 * Lista os projetos da Workspace em utilização
@@ -204,21 +205,23 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		MethodDeclarationVisitor visitor = new MethodDeclarationVisitor();
 		parse.accept(visitor);
 
+		ArrayList<String> MD1 = new ArrayList<String>();
+		ArrayList<String> MI1 = new ArrayList<String>();
 		//results.append("\n\t#### METHODS DECLARATION\n");
+		
 		// Write in the screen: IfStatement and your type
 		for (MethodDeclaration node : visitor.getExpression()) {
 			// Take expression and converts to String, write in the screen
 			//String md = node.getName().toString();
 			//results.append("\t\tMD: [" + md + "]\n");
 			//results.append("\t\t\tParameters: "+node.parameters().toString()+"\n");
-			MD.add(node.getName().toString());
+			MD1.add(node.getName().toString());
+			MD2.add(node);
 		}
 		
-		return MD;
-		
 		//results.append("\n\t\t[MAP CLASSE WITH METHODSDECLARATION]\n\n"+m+"\n");
-		/*for (int i = 0; i < MD.size(); i++) {			
-			String aux = MD.get(i).getBody().toString();
+		for (int i = 0; i < MD2.size(); i++) {			
+			String aux = MD2.get(i).getBody().toString();
 			//results.append("\t\t\t"+aux+"\n");
 			char body[] = aux.toCharArray();
 			Block parse2 = parseBlock(body);
@@ -227,15 +230,18 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 			MethodInvocationVisitor visitor2 = new MethodInvocationVisitor();
 			parse2.accept(visitor2);
 
-				results.append("\n\t\t#### METHODS INVOCATION\n");
+				//results.append("\n\t\t#### METHODS INVOCATION\n");
 				// Write in the screen: IfStatement and your type
 				for (MethodInvocation node : visitor2.getExpression()) {
 					// Take expression and converts to String, write in the screen
-					String md = node.getParent().toString();
-					results.append("\t\t\tMI: [" + md + "]\n");
-					MI.add(node);
+					//String md = node.getParent().toString();
+					//results.append("\t\t\tMI: [" + md + "]\n");
+					MI1.add(node.getParent().toString());
+					MI2.add(node);
 				}
-		}*/
+		}
+		
+		return MD1;
 	}
 
 	/**
@@ -310,7 +316,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 				try {
 					// LIMPA A JANELA DOS RESULTADOS QUANDO SELECIONADO UM NOVO
 					// PROJETO
-					CLA.clear();MD.clear();	MI.clear();m.clear();
+					CLA.clear();MI2.clear();m.clear();MD2.clear();
 					results.setText("");
 
 					// Acha a raiz da workspace para criar/carregar o IProject
@@ -334,28 +340,23 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 
 					for (IPackageFragment mypackage : packageSelection) {
 						for (final ICompilationUnit classe : mypackage.getCompilationUnits()) {
-							results.append("\n### NAME OF CLASS: " + classe.getElementName() + "\n");
+							//results.append("\n### NAME OF CLASS: " + classe.getElementName() + "\n");
 							//analyseClass(classe);
 							CLA.add(classe);
 							
 							// M(CLASSE, LIST<MethodDeclaration>)
-							m.put(classe.getElementName(), analyseClass(classe));
-							results.append("\tTamanho: "+m.size()
-										+"\n\tConjunto de Keys: "+m.keySet()
-										//+"\n\tConjunto de Values: "+m.values()
-										+"\n");
-							}
+							m.put(classe.getElementName(),analyseClass(classe));
+						}
 					}
-
-					//for (ICompilationUnit key : m.keySet()) {
-						//results.append("Key = " + key.getElementName());
-				   // } // Iterating over values only
-					//results.append("\n");
-				    //for (ArrayList<MethodDeclaration> value : m.values()) {
-				    	//results.append("Value = " + value);
-				   //}
-				   //results.append("\n\n");
-				    
+					
+					results.append("\tTamanho: "+m.size()
+								//+"\n\tConjunto de Keys: "+m.keySet()
+								//+"\n\tConjunto de Values: "+m.values()
+								+"\n");
+					
+					for (Map.Entry<String, ArrayList<String>> classe : m.entrySet()) {
+						results.append("Classe:"+classe.getKey()+"\nMétodos:"+classe.getValue()+"\n\n");
+					}				    
 				} catch (CoreException e) {
 					e.printStackTrace();
 				}
@@ -367,7 +368,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		Button btnClear = new Button(shlMessageChain, SWT.NONE);
 		btnClear.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
-				CLA.clear();MD.clear();MI.clear();m.clear();
+				CLA.clear();MD2.clear();MI2.clear();m.clear();
 				results.setText("");
 			}
 		});
@@ -377,7 +378,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		Button btnClose = new Button(shlMessageChain, SWT.NONE);
 		btnClose.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
-				CLA.clear();MD.clear();MI.clear();m.clear();
+				CLA.clear();MD2.clear();MI2.clear();m.clear();
 				shlMessageChain.close();
 			}
 		});
