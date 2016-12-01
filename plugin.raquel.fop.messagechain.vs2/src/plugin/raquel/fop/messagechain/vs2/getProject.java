@@ -4,6 +4,10 @@ import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.IWorkbenchWindowActionDelegate;
 import org.eclipse.wb.swt.SWTResourceManager;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.IWorkspaceRoot;
@@ -15,10 +19,14 @@ import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTParser;
+import org.eclipse.jdt.core.dom.Assignment;
 import org.eclipse.jdt.core.dom.Block;
 import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.InfixExpression;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.MethodInvocation;
+import org.eclipse.jdt.core.dom.StructuralPropertyDescriptor;
+import org.eclipse.jdt.core.dom.SuperMethodInvocation;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.swt.SWT;
@@ -35,8 +43,11 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 	public Shell shlMessageChain;
 	IProject projectSelection;
 	IPackageFragment[] packageSelection;
-	private Text results;
-	static ArrayList<MethodDeclaration> MD = new ArrayList<MethodDeclaration>();
+	private static Text results;
+	static Map<String, ArrayList<String>> m = new HashMap<String, ArrayList<String>>();
+	static ArrayList<ICompilationUnit> CLA = new ArrayList<ICompilationUnit>();
+	static ArrayList<String> MD = new ArrayList<String>();
+	static ArrayList<MethodInvocation> MI = new ArrayList<MethodInvocation>();
 
 	/**
 	 * Lista os projetos da Workspace em utilização
@@ -45,8 +56,146 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		IProject[] projects = ResourcesPlugin.getWorkspace().getRoot().getProjects();
 		return projects;
 	}
+	
+	public static int extractInfixExpression(ASTNode node, int cont) {
+		int k = 0;
 
-	protected void analyseClass(ICompilationUnit classe) {
+		InfixExpression aux = (InfixExpression) node;
+
+		results.append("\tNode: "+node.toString() 
+					+"\n\t\tLeft Side: "+aux.getLeftOperand().toString()
+					+"\n\t\t\tType LeftSide: "+aux.getLeftOperand().getNodeType() 
+					+"\n\t\tRight Side: "+aux.getRightOperand().toString() 
+					+"\n\t\t\tType RightSide: "+aux.getRightOperand().getNodeType()
+					+"\n");
+
+		if (aux.getLeftOperand().getNodeType() == 32) {
+			results.append("\t\t\tLeftSide its MethodInvocation!" 
+						+"\n\t\t\t\tNMCS -> "+(cont + 1) 
+						+"\n");
+			k = k + getChildren(aux.getLeftOperand(), 0);
+		}
+
+		if (aux.getRightOperand().getNodeType() == 32) {
+			results.append("\t\t\tRightSide its MethodInvocation!" 
+						+"\n\t\t\t\tNMCS -> "+(cont + 1) 
+						+"\n");
+			k = k + getChildren(aux.getRightOperand(), 0);
+		}
+
+		return k;
+	}
+
+	public static int extractAssignment(Assignment node) {
+		int k = 0;
+
+		results.append("\tNode: "+node.toString() 
+					+"\n\t\tLeft Side: "+node.getLeftHandSide().toString()
+					+"\n\t\t\tType LeftSide: "+node.getLeftHandSide().getNodeType() 
+					+"\n\t\tRight Side: "+node.getRightHandSide().toString() 
+					+"\n\t\t\tType RightSide: "+node.getRightHandSide().getNodeType()
+					+"\n\n");
+
+		if (node.getLeftHandSide().getNodeType() == 32) {
+			results.append("\t\t\tLeftSide its MethodInvocation!\n");
+			k = getChildren(node.getLeftHandSide(), 0);
+			//NMCS = NMCS + k;
+		} 
+		
+		if (node.getRightHandSide().getNodeType() == 32) {
+			results.append("\t\t\tRightSide its MethodInvocation!\n");
+			k = getChildren(node.getRightHandSide(), 0);
+			//NMCS = NMCS + k;
+		} 
+
+		if (node.getRightHandSide().getNodeType() == 27) {
+			k = extractInfixExpression(node.getRightHandSide(), 0);
+			//NMCS = NMCS + k;
+		}
+
+		return k;
+	}
+
+	public static int getChildren(ASTNode node, int n) {
+		int cont = n;
+		String compara = "[]";
+
+		List<ASTNode> children = new ArrayList<ASTNode>();
+		@SuppressWarnings("rawtypes")
+		List list = node.structuralPropertiesForType();
+
+		for (int i = 0; i < list.size(); i++) {
+			Object child = node.getStructuralProperty((StructuralPropertyDescriptor) list.get(i));
+			if (child instanceof ASTNode) {
+				children.add((ASTNode) child);
+			}
+		}
+
+		String teste = children.toString();
+		// results.append("MethodInvocation Node:
+		// "+children.get(0).toString()+"\nNMCS: "+cont+"\n");
+
+		// Se a string do filho for igual a [] -> CHEGOU AO FIM
+		// e retorna resultado do contador para analyseClass
+		if (teste.equals(compara)) {
+			results.append("\n---> NMCS = " + cont + "\n");
+			return cont;
+		}
+
+		// Aumenta o contador se o nó filho for MethodInvocation ou
+		// SuperMethodInvocation e lista seus métodos componentes, assim
+		// como parâmetros (se houver) de cada método encadeado
+		if (node.getNodeType() == 32) {
+			cont++;
+			MethodInvocation nodev = (MethodInvocation) node;
+			results.append("\tMethodInvocation: " + nodev.getName() + "\n\t\tNMCS -> " + cont + "\n");
+			// Lista parâmetros do MethodInvocation
+			if (nodev.arguments().toString().equals(compara) != true) {
+				for (int k = 0; k < nodev.arguments().size(); k++) {
+					results.append("\t\tArgument[" + k + "]: " + nodev.arguments().get(k).toString() + "\n");
+					// Verifica se parâmetro é método p/ poder incrementar cont
+					// e,
+					// consequentemente, NMCS
+					ASTNode param = (ASTNode) nodev.arguments().get(k);
+					if (param.getNodeType() == 32) {
+						cont++;
+						results.append(
+								"\t\t\tArg[" + k + "] its MethodInvocation!" + "\n\t\t\t\tNMCS -> " + cont + "\n");
+					} else if (param.getNodeType() == 27) {
+						results.append("\t\t\tArg[" + k + "] its InfixExpression!\n");
+						cont = cont + extractInfixExpression(param, cont);
+					}
+				}
+			}
+		} else if (node.getNodeType() == 48) {
+			cont++;
+			SuperMethodInvocation nodesv = (SuperMethodInvocation) node;
+			results.append("\tSuperMethodInvocation: " + nodesv.getName() + "\n\t\tNMCS -> " + cont + "\n");
+			// Lista parâmetros do SuperMethodInvocation
+			if (nodesv.arguments().toString().equals(compara) != true) {
+				for (int k = 0; k < nodesv.arguments().size(); k++) {
+					results.append("\t\tArgument[" + k + "]: " + nodesv.arguments().get(k).toString() + "\n");
+					// Verifica se parâmetro é método p/ poder incrementar cont
+					// e,
+					// consequentemente NMCS
+					ASTNode param = (ASTNode) nodesv.arguments().get(k);
+					if (param.getNodeType() == 32) {
+						cont++;
+						results.append(
+								"\t\t\tArg[" + k + "] its MethodInvocation!" + "\n\t\t\t\tNMCS -> " + cont + "\n");
+					} else if (param.getNodeType() == 27) {
+						results.append("\t\t\tArg[" + k + "] its InfixExpression!\n");
+						cont = cont + extractInfixExpression(param, cont);
+					}
+				}
+			}
+		}
+
+		// Recursão para encontrar próximo nó (filho do filho)
+		return getChildren(children.get(0), cont);
+	}
+
+	protected ArrayList<String> analyseClass(ICompilationUnit classe) {
 		// ICompilationUnit unit == class
 		// now create the AST for the ICompilationUnits
 		CompilationUnit parse = parse(classe);
@@ -55,65 +204,47 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		MethodDeclarationVisitor visitor = new MethodDeclarationVisitor();
 		parse.accept(visitor);
 
-		results.append("\t\t#### METHODS DECLARATION\n");
+		//results.append("\n\t#### METHODS DECLARATION\n");
 		// Write in the screen: IfStatement and your type
 		for (MethodDeclaration node : visitor.getExpression()) {
 			// Take expression and converts to String, write in the screen
-			String md = node.getName().toString();
-			results.append("\t\t\tMD: [" + md + "]\n");
-			results.append("\t\t\t\tParameters: "+node.parameters().toString()
-					+"\n");
-			MD.add(node);
+			//String md = node.getName().toString();
+			//results.append("\t\tMD: [" + md + "]\n");
+			//results.append("\t\t\tParameters: "+node.parameters().toString()+"\n");
+			MD.add(node.getName().toString());
 		}
 		
-		results.append("\n\t\t[ARRAY COM METHODSDECLARATION]\n");
-		for (int i = 0; i < MD.size(); i++) {			
+		return MD;
+		
+		//results.append("\n\t\t[MAP CLASSE WITH METHODSDECLARATION]\n\n"+m+"\n");
+		/*for (int i = 0; i < MD.size(); i++) {			
 			String aux = MD.get(i).getBody().toString();
-			results.append("\t\t\t"+aux+"\n");
+			//results.append("\t\t\t"+aux+"\n");
 			char body[] = aux.toCharArray();
 			Block parse2 = parseBlock(body);
 			
-			// Calls the method for visit node in AST e return your information*/
+			// Calls the method for visit node in AST e return your information
 			MethodInvocationVisitor visitor2 = new MethodInvocationVisitor();
 			parse2.accept(visitor2);
 
-			results.append("\t\t#### METHODS DECLARATION\n");
-			// Write in the screen: IfStatement and your type
-			for (MethodInvocation node : visitor2.getExpression()) {
-				// Take expression and converts to String, write in the screen
-				String mi = node.getName().toString();
-				results.append("\t\t\tMI: [" + mi + "]\n");
-			}
-		}
-
-		
-		// Chama função para análise do corpo de cada MD da classe
-		// Analisar cada Statement do corpo não funciona, achar outro jeito
-		//analyseBodyMD(MD);
+				results.append("\n\t\t#### METHODS INVOCATION\n");
+				// Write in the screen: IfStatement and your type
+				for (MethodInvocation node : visitor2.getExpression()) {
+					// Take expression and converts to String, write in the screen
+					String md = node.getParent().toString();
+					results.append("\t\t\tMI: [" + md + "]\n");
+					MI.add(node);
+				}
+		}*/
 	}
 
-	@SuppressWarnings("unused")
-	private void analyseBodyMD(ArrayList<MethodDeclaration> node) {
-		ArrayList<Block> bodyMD =  new ArrayList<Block>();
-		ArrayList<ASTNode> statementsBody = new ArrayList<ASTNode>();
-		
-		// Adicionei todos os Bodys dos MD numa lista
-		for (int i = 0; i < node.size(); i++) {
-			bodyMD.add(node.get(i).getBody());
-			results.append("\n\t\t\t\tBODY STATEMENT[0]: "+node.get(i).getBody().statements().get(0).toString()+"\n");
-		}
-		
-		for(int j = 0; j < bodyMD.size(); j++) {
-			statementsBody.add((ASTNode) bodyMD.get(j).statements().get(j));
-			results.append("\n\t\t\t\tSTATEMENT["+j+"]: "+statementsBody.get(j).toString()
-					+"\n\t\t\t\t\tType: "+statementsBody.get(j).getNodeType()
-					+"\n");
-		}
-		
-		//DELATADO
-		//analyseStatementsBody(statementsBody);		
-	}
-
+	/**
+	 * Reads a char[] of Block of MethodDeclaration and creates the AST DOM for
+	 * manipulating the Java source
+	 * 
+	 * @param unit
+	 * @return
+	 */
 	private static Block parseBlock(char[] unit) {
 		ASTParser parser = ASTParser.newParser(AST.JLS8);
 		parser.setKind(ASTParser.K_STATEMENTS);
@@ -179,7 +310,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 				try {
 					// LIMPA A JANELA DOS RESULTADOS QUANDO SELECIONADO UM NOVO
 					// PROJETO
-					MD.clear();
+					CLA.clear();MD.clear();	MI.clear();m.clear();
 					results.setText("");
 
 					// Acha a raiz da workspace para criar/carregar o IProject
@@ -190,8 +321,8 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 
 					// Pega a raiz do projeto selecionado pelo usuário
 					projectSelection = root.getProject(nameProject);
-					results.append("## NAME OF PROJECT: " + projectSelection.getName() + "\n");
-					results.append("## PATH OF PROJECT: " + projectSelection.getFullPath() + "\n");
+					//results.append("## NAME OF PROJECT: " + projectSelection.getName() + "\n");
+					//results.append("## PATH OF PROJECT: " + projectSelection.getFullPath() + "\n");
 					projectSelection.open(null);
 
 					// Gera a lista de todas as classes do projeto selecionado
@@ -203,12 +334,28 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 
 					for (IPackageFragment mypackage : packageSelection) {
 						for (final ICompilationUnit classe : mypackage.getCompilationUnits()) {
-							results.append("\n\t### NAME OF CLASS: " + classe.getElementName() + "\n");
-							analyseClass(classe);
-						}
+							results.append("\n### NAME OF CLASS: " + classe.getElementName() + "\n");
+							//analyseClass(classe);
+							CLA.add(classe);
+							
+							// M(CLASSE, LIST<MethodDeclaration>)
+							m.put(classe.getElementName(), analyseClass(classe));
+							results.append("\tTamanho: "+m.size()
+										+"\n\tConjunto de Keys: "+m.keySet()
+										//+"\n\tConjunto de Values: "+m.values()
+										+"\n");
+							}
 					}
-					
-					
+
+					//for (ICompilationUnit key : m.keySet()) {
+						//results.append("Key = " + key.getElementName());
+				   // } // Iterating over values only
+					//results.append("\n");
+				    //for (ArrayList<MethodDeclaration> value : m.values()) {
+				    	//results.append("Value = " + value);
+				   //}
+				   //results.append("\n\n");
+				    
 				} catch (CoreException e) {
 					e.printStackTrace();
 				}
@@ -220,7 +367,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		Button btnClear = new Button(shlMessageChain, SWT.NONE);
 		btnClear.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
-				MD.clear();
+				CLA.clear();MD.clear();MI.clear();m.clear();
 				results.setText("");
 			}
 		});
@@ -230,7 +377,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		Button btnClose = new Button(shlMessageChain, SWT.NONE);
 		btnClose.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
-				MD.clear();
+				CLA.clear();MD.clear();MI.clear();m.clear();
 				shlMessageChain.close();
 			}
 		});
