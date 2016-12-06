@@ -7,8 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-
+//import java.util.Map.Entry;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
@@ -20,6 +19,7 @@ import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IPackageFragment;
 import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTParser;
@@ -38,7 +38,6 @@ import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
-import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 
@@ -203,16 +202,15 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 	}
 
 	protected ArrayList<String> analyseCLA(ICompilationUnit classe) {
-		// ICompilationUnit unit == class
-		// now create the AST for the ICompilationUnits
+		// now create the AST for the ICompilationUnit
 		CompilationUnit parse = parse(classe);
 
 		// Calls the method for visit node in AST e return your information*/
 		MethodDeclarationVisitor visitor = new MethodDeclarationVisitor();
 		parse.accept(visitor);
 
-		ArrayList<String> MD1 = new ArrayList<String>();
-		//results.append("\n\t#### METHODS DECLARATION\n");
+		ArrayList<String> aux1 = new ArrayList<String>();
+		aux1.clear();
 		
 		// Write in the screen: IfStatement and your type
 		for (MethodDeclaration node : visitor.getExpression()) {
@@ -220,35 +218,71 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 			//String md = node.getName().toString();
 			//results.append("\t\tMD: [" + md + "]\n");
 			//results.append("\t\t\tParameters: "+node.parameters().toString()+"\n");
-			MD1.add(node.getName().toString());
+			aux1.add(node.getName().toString());
 			MD.add(node);
 		}
-		return MD1;
+		return aux1;
 	}
 
 	private ArrayList<String> analyseMD(MethodDeclaration methodDeclaration) {
-		//results.append("\n\t\t[MAP CLASSE WITH METHODSDECLARATION]\n\n"+m+"\n");
-		ArrayList<String> MI1 = new ArrayList<String>();
-		String aux = methodDeclaration.getBody().toString();
+		ArrayList<String> aux2 = new ArrayList<String>();
+		aux2.clear();
+		
+		String bd = methodDeclaration.getBody().toString();
 		//results.append("\t\t\t"+aux+"\n");
-		char body[] = aux.toCharArray();
+		char body[] = bd.toCharArray();
 		Block parse2 = parseBlock(body);
 					
 		// Calls the method for visit node in AST e return your information
 	    MethodInvocationVisitor visitor2 = new MethodInvocationVisitor();
 		parse2.accept(visitor2);
 
-		//results.append("\n\t\t#### METHODS INVOCATION\n");
 		for (MethodInvocation node : visitor2.getExpression()) {
 			// Take expression and converts to String, write in the screen
 			//String md = node.getParent().toString();
 			//results.append("\t\t\tMI: [" + md + "]\n");
-			MI1.add(node.getParent().toString());
+			aux2.add(node.getParent().toString());
 			MI.add(node);
 		}
 		
-		return MI1;
+		return aux2;
 	}
+	
+	/**
+	 * 
+	 * @param packageSelection
+	 * @throws JavaModelException
+	 */
+	private void geraMaps(IPackageFragment[] packageSelection) throws JavaModelException {		
+		for (IPackageFragment mypackage : packageSelection) {
+			for (final ICompilationUnit classe : mypackage.getCompilationUnits()) {
+				results.append("CLASS: "+classe.getElementName()+"\n");
+				CLA.add(classe);
+				//array1.put(classe.getElementName(),analyseCLA(classe));
+				//CLAeMD.put(classe, MD);
+			}
+		}
+		
+		for (ICompilationUnit cla : CLA) {
+			array1.put(cla.getElementName(),analyseCLA(cla));
+			CLAeMD.put(cla, MD);
+		}		
+		
+		results.append("\n\n\n\n");
+		for (Map.Entry<String, ArrayList<String>> aux1 : array1.entrySet()) {
+			results.append("CLASSE: "+aux1.getKey()+"\n\tMETODOS DECLARADOS: "+aux1.getValue()+"\n\n");
+		}		
+		
+		for (MethodDeclaration md : MD) {
+			array2.put(md.getName().toString(),analyseMD(md));
+			MDeMI.put(md,MI);
+		}
+
+		results.append("\n\n\n\n");
+		for (Map.Entry<String, ArrayList<String>> aux3 : array2.entrySet()) {
+			results.append("M.DECLARADO: "+aux3.getKey()+"\n\tM.INVOCADOS: "+aux3.getValue()+"\n\n");
+		}
+	} 
 	
 	/**
 	 * Reads a char[] of Block of MethodDeclaration and creates the AST DOM for
@@ -307,8 +341,10 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		btnApply.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
 				try {
-					// LIMPA A JANELA DOS RESULTADOS QUANDO SELECIONADO UM NOVO PROJETO
-					CLA.clear();MI.clear();array1.clear();MD.clear();array2.clear();
+					// LIMPA A JANELA DOS RESULTADOS E MAPS E ARRAYLISTS QUANDO SELECIONADO UM NOVO PROJETO
+					CLA.clear();MD.clear();MI.clear();
+					array1.clear();array2.clear();
+					CLAeMD.clear();MDeMI.clear();
 					results.setText("");
 
 					// Acha a raiz da workspace para criar/carregar o IProject
@@ -326,63 +362,24 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 					// do projeto: IProject -> IPackageFragment -> ICompilationUnit -> arq.java
 					packageSelection = JavaCore.create(projectSelection).getPackageFragments();
 					
-					/*IFolder folder = root.getProject().getFolder("/TankWar-AHEAD/features");
-					results.append("###FOLDER STUDY\n\tNAME: "+folder.getName()
-								+"\n\tType: "+folder.getType()
-								+"\n\tExists: "+folder.exists()
-								+"\n");
-							
-					IFolder folder2 = projectSelection.getFolder("features");
-	                IPackageFragmentRoot srcFolder = 
-	                
-	                results.append(srcFolder.getChildren().toString();	);
-					for (IPackageFragment mypackage : packageSelection) {
-						
-					}*/
-
-					for (IPackageFragment mypackage : packageSelection) {
-						for (final ICompilationUnit classe : mypackage.getCompilationUnits()) {
-							results.append("\n### NAME OF CLASS: " + classe.getElementName() + "\n");
-							// M(CLASSE NAME, LIST<MethodDeclaration>)
-							CLA.add(classe);
-							array1.put(classe.getElementName(),analyseCLA(classe));
-							CLAeMD.put(classe, MD);
-						}
-					}				
+					geraMaps(packageSelection);
 					
-					results.append("###MAP CLA e MD [ARRAY]\n");
-					for (Map.Entry<String, ArrayList<String>> aux1 : array1.entrySet()) {
-						results.append("CLASSE: "+aux1.getKey()+"\n\tMETODOS DECLARADOS: "+aux1.getValue()+"\n\n");
+					for (MethodInvocation node : MI) {
+						getChildren(node,0);
 					}
-					
-					/*results.append("\n###MAP CLA e MD [OBJECT]\n");
-					for (Entry<ICompilationUnit, ArrayList<MethodDeclaration>> aux2 : CLAeMD.entrySet()) {
-						results.append("CLASSE: "+aux2.getKey().getElementName()+"\n\tMETODOS DECLARADOS: "+aux2.getValue()+"\n\n");
-					}*/
-					
-					for (int i = 0; i < MD.size(); i++) {
-						 array2.put(MD.get(i).getName().toString(), analyseMD(MD.get(i)));
-						 MDeMI.put(MD.get(i),MI);
-					}
-					
-					results.append("###MAP MD e MI [ARRAY]\n");
-					for (Map.Entry<String, ArrayList<String>> aux3 : array2.entrySet()) {
-						results.append("M.DECLARADO: "+aux3.getKey()+"\n\tM.INVOCADOS: "+aux3.getValue()+"\n\n");
-					}
-
-					
 				} catch (CoreException e) {
 					e.printStackTrace();
 				}
-			} 
-		});
+			}});
 		btnApply.setBounds(437, 24, 46, 25);
 		btnApply.setText("Apply");
 		
 		Button btnClear = new Button(shell, SWT.NONE);
 		btnClear.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
-				CLA.clear();MD.clear();MI.clear();array1.clear();array2.clear();
+				CLA.clear();MD.clear();MI.clear();
+				array1.clear();array2.clear();
+				CLAeMD.clear();MDeMI.clear();
 				results.setText("");
 			}
 		});
@@ -392,7 +389,9 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		Button btnClose = new Button(shell, SWT.NONE);
 		btnClose.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
-				CLA.clear();MD.clear();MI.clear();array1.clear();array2.clear();
+				CLA.clear();MD.clear();MI.clear();
+				array1.clear();array2.clear();
+				CLAeMD.clear();MDeMI.clear();
 				shell.close();
 			}
 		});
@@ -405,7 +404,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		shell.pack();
 		shell.open();
 	}
-
+	
 	// IActionDelegate method
 	public void selectionChanged(IAction proxyAction, ISelection selection) {
 		// do nothing, action is not dependent on the selection
@@ -416,7 +415,6 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		activeWindow = window;
 	}
 
-	// IWorkbenchWindowActionDelegate method
 	public void dispose() {
 		// nothing to do
 	}
