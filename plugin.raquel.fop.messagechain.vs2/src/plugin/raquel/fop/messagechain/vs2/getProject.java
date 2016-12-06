@@ -7,7 +7,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
+import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.IWorkspaceRoot;
@@ -15,6 +18,7 @@ import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IPackageFragment;
+import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
@@ -40,15 +44,17 @@ import org.eclipse.swt.widgets.Text;
 
 public class getProject implements IWorkbenchWindowActionDelegate {
 	IWorkbenchWindow activeWindow = null;
-	public Shell shlMessageChain;
+	public Shell shell;
 	IProject projectSelection;
 	IPackageFragment[] packageSelection;
 	private static Text results;
-	static Map<String, ArrayList<String>> m = new HashMap<String, ArrayList<String>>();
-	static Map<String, ArrayList<String>> mdTOmi = new HashMap<String, ArrayList<String>>();
+	static Map<String, ArrayList<String>> array1 = new HashMap<String, ArrayList<String>>();
+	static Map<String, ArrayList<String>> array2 = new HashMap<String, ArrayList<String>>();
+	static Map<ICompilationUnit, ArrayList<MethodDeclaration>> CLAeMD = new HashMap<ICompilationUnit, ArrayList<MethodDeclaration>>();
+	static Map<MethodDeclaration, ArrayList<MethodInvocation>> MDeMI = new HashMap<MethodDeclaration, ArrayList<MethodInvocation>>();
 	static ArrayList<ICompilationUnit> CLA = new ArrayList<ICompilationUnit>();
-	static ArrayList<MethodDeclaration> MD2 = new ArrayList<MethodDeclaration>();
-	static ArrayList<MethodInvocation> MI2 = new ArrayList<MethodInvocation>();
+	static ArrayList<MethodDeclaration> MD = new ArrayList<MethodDeclaration>();
+	static ArrayList<MethodInvocation> MI = new ArrayList<MethodInvocation>();
 
 	/**
 	 * Lista os projetos da Workspace em utilização
@@ -196,7 +202,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		return getChildren(children.get(0), cont);
 	}
 
-	protected ArrayList<String> analyseClass(ICompilationUnit classe) {
+	protected ArrayList<String> analyseCLA(ICompilationUnit classe) {
 		// ICompilationUnit unit == class
 		// now create the AST for the ICompilationUnits
 		CompilationUnit parse = parse(classe);
@@ -206,7 +212,6 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		parse.accept(visitor);
 
 		ArrayList<String> MD1 = new ArrayList<String>();
-		ArrayList<String> MI1 = new ArrayList<String>();
 		//results.append("\n\t#### METHODS DECLARATION\n");
 		
 		// Write in the screen: IfStatement and your type
@@ -216,34 +221,35 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 			//results.append("\t\tMD: [" + md + "]\n");
 			//results.append("\t\t\tParameters: "+node.parameters().toString()+"\n");
 			MD1.add(node.getName().toString());
-			MD2.add(node);
+			MD.add(node);
 		}
-		
-		//results.append("\n\t\t[MAP CLASSE WITH METHODSDECLARATION]\n\n"+m+"\n");
-		for (int i = 0; i < MD2.size(); i++) {			
-			String aux = MD2.get(i).getBody().toString();
-			//results.append("\t\t\t"+aux+"\n");
-			char body[] = aux.toCharArray();
-			Block parse2 = parseBlock(body);
-			
-			// Calls the method for visit node in AST e return your information
-			MethodInvocationVisitor visitor2 = new MethodInvocationVisitor();
-			parse2.accept(visitor2);
-
-				//results.append("\n\t\t#### METHODS INVOCATION\n");
-				// Write in the screen: IfStatement and your type
-				for (MethodInvocation node : visitor2.getExpression()) {
-					// Take expression and converts to String, write in the screen
-					//String md = node.getParent().toString();
-					//results.append("\t\t\tMI: [" + md + "]\n");
-					MI1.add(node.getParent().toString());
-					MI2.add(node);
-				}
-		}
-		
 		return MD1;
 	}
 
+	private ArrayList<String> analyseMD(MethodDeclaration methodDeclaration) {
+		//results.append("\n\t\t[MAP CLASSE WITH METHODSDECLARATION]\n\n"+m+"\n");
+		ArrayList<String> MI1 = new ArrayList<String>();
+		String aux = methodDeclaration.getBody().toString();
+		//results.append("\t\t\t"+aux+"\n");
+		char body[] = aux.toCharArray();
+		Block parse2 = parseBlock(body);
+					
+		// Calls the method for visit node in AST e return your information
+	    MethodInvocationVisitor visitor2 = new MethodInvocationVisitor();
+		parse2.accept(visitor2);
+
+		//results.append("\n\t\t#### METHODS INVOCATION\n");
+		for (MethodInvocation node : visitor2.getExpression()) {
+			// Take expression and converts to String, write in the screen
+			//String md = node.getParent().toString();
+			//results.append("\t\t\tMI: [" + md + "]\n");
+			MI1.add(node.getParent().toString());
+			MI.add(node);
+		}
+		
+		return MI1;
+	}
+	
 	/**
 	 * Reads a char[] of Block of MethodDeclaration and creates the AST DOM for
 	 * manipulating the Java source
@@ -259,7 +265,6 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		return (Block) parser.createAST(null);
 	}
 	
-
 	/**
 	 * Reads a ICompilationUnit and creates the AST DOM for manipulating the
 	 * Java source file
@@ -283,25 +288,13 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 	public void run(IAction proxyAction) {
 		// proxyAction has UI information from manifest file (ignored)
 		// constrói a janela principal
-		shlMessageChain = new Shell();
-		shlMessageChain.setLayout(null);
-
-		Label lblPrincipal = new Label(shlMessageChain, SWT.NONE);
-		lblPrincipal.setFont(SWTResourceManager.getFont("@Microsoft JhengHei", 11, SWT.BOLD));
-		lblPrincipal.setBounds(10, 0, 184, 28);
-		lblPrincipal.setText("Message Chain Plug-in");
-
-		Label lblSelectTheProject = new Label(shlMessageChain, SWT.NONE);
-		lblSelectTheProject.setFont(SWTResourceManager.getFont("@Microsoft JhengHei", 10, SWT.NORMAL));
-		lblSelectTheProject.setBounds(10, 34, 112, 15);
-		lblSelectTheProject.setText("Select the project:");
-
-		results = new Text(shlMessageChain, SWT.MULTI | SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
-		results.setBounds(10, 69, 559, 376);
-
-		Combo comboProjects = new Combo(shlMessageChain, SWT.NONE);
-		comboProjects.setBounds(128, 31, 441, 23);
-
+		shell = new Shell();
+		shell.setSize(678, 474);
+		shell.setText("Message Chain Plug-in");
+		
+		Combo comboProjects = new Combo(shell, SWT.NONE);
+		comboProjects.setBounds(10, 26, 414, 23);
+		
 		// Gets all projects from workspace
 		IProject[] projects = getAllProjects();
 		for (int i = 0; i < projects.length; i++) {
@@ -309,14 +302,13 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		}
 
 		comboProjects.select(0);
-
-		Button btnApply = new Button(shlMessageChain, SWT.NONE);
+		
+		Button btnApply = new Button(shell, SWT.NONE);
 		btnApply.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
 				try {
-					// LIMPA A JANELA DOS RESULTADOS QUANDO SELECIONADO UM NOVO
-					// PROJETO
-					CLA.clear();MI2.clear();m.clear();MD2.clear();
+					// LIMPA A JANELA DOS RESULTADOS QUANDO SELECIONADO UM NOVO PROJETO
+					CLA.clear();MI.clear();array1.clear();MD.clear();array2.clear();
 					results.setText("");
 
 					// Acha a raiz da workspace para criar/carregar o IProject
@@ -327,66 +319,91 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 
 					// Pega a raiz do projeto selecionado pelo usuário
 					projectSelection = root.getProject(nameProject);
-					//results.append("## NAME OF PROJECT: " + projectSelection.getName() + "\n");
-					//results.append("## PATH OF PROJECT: " + projectSelection.getFullPath() + "\n");
 					projectSelection.open(null);
 
 					// Gera a lista de todas as classes do projeto selecionado
-					// com o tipo IPackageFragment que obtenho todas as classes
-					// de um projeto
-					// IProject -> IPackageFragment -> ICompilationUnit ->
-					// arq.java
+					// com o tipo IPackageFragment onde obtenho todas as classes
+					// do projeto: IProject -> IPackageFragment -> ICompilationUnit -> arq.java
 					packageSelection = JavaCore.create(projectSelection).getPackageFragments();
+					
+					/*IFolder folder = root.getProject().getFolder("/TankWar-AHEAD/features");
+					results.append("###FOLDER STUDY\n\tNAME: "+folder.getName()
+								+"\n\tType: "+folder.getType()
+								+"\n\tExists: "+folder.exists()
+								+"\n");
+							
+					IFolder folder2 = projectSelection.getFolder("features");
+	                IPackageFragmentRoot srcFolder = 
+	                
+	                results.append(srcFolder.getChildren().toString();	);
+					for (IPackageFragment mypackage : packageSelection) {
+						
+					}*/
 
 					for (IPackageFragment mypackage : packageSelection) {
 						for (final ICompilationUnit classe : mypackage.getCompilationUnits()) {
-							//results.append("\n### NAME OF CLASS: " + classe.getElementName() + "\n");
-							//analyseClass(classe);
+							results.append("\n### NAME OF CLASS: " + classe.getElementName() + "\n");
+							// M(CLASSE NAME, LIST<MethodDeclaration>)
 							CLA.add(classe);
-							
-							// M(CLASSE, LIST<MethodDeclaration>)
-							m.put(classe.getElementName(),analyseClass(classe));
+							array1.put(classe.getElementName(),analyseCLA(classe));
+							CLAeMD.put(classe, MD);
 						}
+					}				
+					
+					results.append("###MAP CLA e MD [ARRAY]\n");
+					for (Map.Entry<String, ArrayList<String>> aux1 : array1.entrySet()) {
+						results.append("CLASSE: "+aux1.getKey()+"\n\tMETODOS DECLARADOS: "+aux1.getValue()+"\n\n");
 					}
 					
-					results.append("\tTamanho: "+m.size()
-								//+"\n\tConjunto de Keys: "+m.keySet()
-								//+"\n\tConjunto de Values: "+m.values()
-								+"\n");
+					/*results.append("\n###MAP CLA e MD [OBJECT]\n");
+					for (Entry<ICompilationUnit, ArrayList<MethodDeclaration>> aux2 : CLAeMD.entrySet()) {
+						results.append("CLASSE: "+aux2.getKey().getElementName()+"\n\tMETODOS DECLARADOS: "+aux2.getValue()+"\n\n");
+					}*/
 					
-					for (Map.Entry<String, ArrayList<String>> classe : m.entrySet()) {
-						results.append("Classe:"+classe.getKey()+"\nMétodos:"+classe.getValue()+"\n\n");
-					}				    
+					for (int i = 0; i < MD.size(); i++) {
+						 array2.put(MD.get(i).getName().toString(), analyseMD(MD.get(i)));
+						 MDeMI.put(MD.get(i),MI);
+					}
+					
+					results.append("###MAP MD e MI [ARRAY]\n");
+					for (Map.Entry<String, ArrayList<String>> aux3 : array2.entrySet()) {
+						results.append("M.DECLARADO: "+aux3.getKey()+"\n\tM.INVOCADOS: "+aux3.getValue()+"\n\n");
+					}
+
+					
 				} catch (CoreException e) {
 					e.printStackTrace();
 				}
-			}
+			} 
 		});
-		btnApply.setBounds(584, 29, 75, 25);
+		btnApply.setBounds(437, 24, 46, 25);
 		btnApply.setText("Apply");
-
-		Button btnClear = new Button(shlMessageChain, SWT.NONE);
+		
+		Button btnClear = new Button(shell, SWT.NONE);
 		btnClear.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
-				CLA.clear();MD2.clear();MI2.clear();m.clear();
+				CLA.clear();MD.clear();MI.clear();array1.clear();array2.clear();
 				results.setText("");
 			}
 		});
+		btnClear.setBounds(489, 24, 46, 25);
 		btnClear.setText("Clear");
-		btnClear.setBounds(584, 63, 75, 25);
-
-		Button btnClose = new Button(shlMessageChain, SWT.NONE);
+		
+		Button btnClose = new Button(shell, SWT.NONE);
 		btnClose.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
-				CLA.clear();MD2.clear();MI2.clear();m.clear();
-				shlMessageChain.close();
+				CLA.clear();MD.clear();MI.clear();array1.clear();array2.clear();
+				shell.close();
 			}
 		});
-		btnClose.setBounds(584, 96, 75, 25);
 		btnClose.setText("Close");
+		btnClose.setBounds(541, 24, 46, 25);
+		
+		results = new Text(shell, SWT.MULTI | SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
+		results.setBounds(10, 55, 642, 370);
 
-		shlMessageChain.pack();
-		shlMessageChain.open();
+		shell.pack();
+		shell.open();
 	}
 
 	// IActionDelegate method
