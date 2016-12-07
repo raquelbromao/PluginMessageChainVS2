@@ -2,14 +2,12 @@ package plugin.raquel.fop.messagechain.vs2;
 
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.IWorkbenchWindowActionDelegate;
-import org.eclipse.wb.swt.SWTResourceManager;
+
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-//import java.util.Map.Entry;
-import org.eclipse.core.resources.IFile;
-import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.IWorkspaceRoot;
@@ -17,7 +15,6 @@ import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IPackageFragment;
-import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.dom.AST;
@@ -49,11 +46,13 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 	private static Text results;
 	static Map<String, ArrayList<String>> array1 = new HashMap<String, ArrayList<String>>();
 	static Map<String, ArrayList<String>> array2 = new HashMap<String, ArrayList<String>>();
+	static Map<String, ArrayList<String>> array3 = new HashMap<String, ArrayList<String>>();
 	static Map<ICompilationUnit, ArrayList<MethodDeclaration>> CLAeMD = new HashMap<ICompilationUnit, ArrayList<MethodDeclaration>>();
 	static Map<MethodDeclaration, ArrayList<MethodInvocation>> MDeMI = new HashMap<MethodDeclaration, ArrayList<MethodInvocation>>();
 	static ArrayList<ICompilationUnit> CLA = new ArrayList<ICompilationUnit>();
 	static ArrayList<MethodDeclaration> MD = new ArrayList<MethodDeclaration>();
 	static ArrayList<MethodInvocation> MI = new ArrayList<MethodInvocation>();
+	static ArrayList<String> FEA = new ArrayList<String>();
 
 	/**
 	 * Lista os projetos da Workspace em utilização
@@ -127,7 +126,6 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		String compara = "[]";
 
 		List<ASTNode> children = new ArrayList<ASTNode>();
-		@SuppressWarnings("rawtypes")
 		List list = node.structuralPropertiesForType();
 
 		for (int i = 0; i < list.size(); i++) {
@@ -225,8 +223,8 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 	}
 
 	private ArrayList<String> analyseMD(MethodDeclaration methodDeclaration) {
-		ArrayList<String> aux2 = new ArrayList<String>();
-		aux2.clear();
+		ArrayList<String> aux = new ArrayList<String>();
+		//aux2.clear();
 		
 		String bd = methodDeclaration.getBody().toString();
 		//results.append("\t\t\t"+aux+"\n");
@@ -241,11 +239,11 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 			// Take expression and converts to String, write in the screen
 			//String md = node.getParent().toString();
 			//results.append("\t\t\tMI: [" + md + "]\n");
-			aux2.add(node.getParent().toString());
+			aux.add(node.getParent().toString());
 			MI.add(node);
 		}
 		
-		return aux2;
+		return aux;
 	}
 	
 	/**
@@ -254,34 +252,45 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 	 * @throws JavaModelException
 	 */
 	private void geraMaps(IPackageFragment[] packageSelection) throws JavaModelException {		
+		//NAO SE USA Present Project Directory: "+System.getProperty("user.dir")
 		for (IPackageFragment mypackage : packageSelection) {
+			//results.append("PATH PACKAGE: "+mypackage.getPath().toString()+"\n");
 			for (final ICompilationUnit classe : mypackage.getCompilationUnits()) {
-				results.append("CLASS: "+classe.getElementName()+"\n");
+				results.append("\tPATH CLASS: "+classe.getPath().toString()+"\n");
 				CLA.add(classe);
 				//array1.put(classe.getElementName(),analyseCLA(classe));
 				//CLAeMD.put(classe, MD);
 			}
 		}
 		
+		int contCLA = 0;
+		int contMD = 0;
+		results.append("\nSIZE CLA: "+CLA.size()+"\n");
 		for (ICompilationUnit cla : CLA) {
+			contCLA++;
+			results.append("#"+contCLA+"["+cla.getElementName()+"]\t");
 			array1.put(cla.getElementName(),analyseCLA(cla));
 			CLAeMD.put(cla, MD);
 		}		
 		
-		results.append("\n\n\n\n");
+		results.append("\n\n");
 		for (Map.Entry<String, ArrayList<String>> aux1 : array1.entrySet()) {
-			results.append("CLASSE: "+aux1.getKey()+"\n\tMETODOS DECLARADOS: "+aux1.getValue()+"\n\n");
+			results.append("CLASSE: "+aux1.getKey()+"\nMETODOS DECLARADOS: "+aux1.getValue()+"\n\n");
 		}		
 		
+		results.append("SIZE MD: "+MD.size()+"\n");
 		for (MethodDeclaration md : MD) {
-			array2.put(md.getName().toString(),analyseMD(md));
-			MDeMI.put(md,MI);
+			contMD++;
+			//analyseMD(md);
+			//array2.put(md.getName().toString(),analyseMD(md));
+			//MDeMI.put(md,MI);
+			results.append("#"+contMD+"["+md.getName().toString()+"]\t");
 		}
 
-		results.append("\n\n\n\n");
+		/*results.append("\n\n\n\n");
 		for (Map.Entry<String, ArrayList<String>> aux3 : array2.entrySet()) {
 			results.append("M.DECLARADO: "+aux3.getKey()+"\n\tM.INVOCADOS: "+aux3.getValue()+"\n\n");
-		}
+		}*/
 	} 
 	
 	/**
@@ -313,6 +322,25 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		parser.setResolveBindings(true);
 		return (CompilationUnit) parser.createAST(null);
 	}
+	
+    /**
+     * List all the files under a directory
+     * @param directoryName to be listed
+     * @return 
+     */
+    public ArrayList<String> listFiles(String directoryName){
+    	ArrayList<String> aux = new ArrayList<String>();
+        File directory = new File(directoryName);
+        //get all the files from a directory
+        File[] fList = directory.listFiles();
+        for (File file : fList){
+            if (file.isFile()){
+                //results.append(file.getName()+"\t");
+                aux.add(file.getName());
+            }
+        }
+        return aux;
+    }
 
 	/**
 	 * Gera a janela 1 do Plug-in
@@ -342,8 +370,8 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 			public void widgetSelected(SelectionEvent event) {
 				try {
 					// LIMPA A JANELA DOS RESULTADOS E MAPS E ARRAYLISTS QUANDO SELECIONADO UM NOVO PROJETO
-					CLA.clear();MD.clear();MI.clear();
-					array1.clear();array2.clear();
+					CLA.clear();MD.clear();MI.clear();FEA.clear();
+					array1.clear();array2.clear();array3.clear();
 					CLAeMD.clear();MDeMI.clear();
 					results.setText("");
 
@@ -352,10 +380,42 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 					String nameProject = comboProjects.getItem(comboProjects.getSelectionIndex());
 					IWorkspace workspace = ResourcesPlugin.getWorkspace();
 					IWorkspaceRoot root = workspace.getRoot();
+					
+					
 
 					// Pega a raiz do projeto selecionado pelo usuário
 					projectSelection = root.getProject(nameProject);
 					projectSelection.open(null);
+					
+					results.append("PATH PROJECT FULL: "+projectSelection.getFullPath().toString()
+							+"\nIs empty? "+projectSelection.getFullPath().isEmpty()
+							//+"\nFeatures Path: "+projectSelection.getFile("/features").getFullPath().toString()
+							+"\nProject Path: "+root.getProject(nameProject).getFullPath().toString()
+							+"\n\n");
+					
+					int contFEA = 0;
+					String aux = projectSelection.getFile("/features").getFullPath().toString();
+					
+					String directoryName = ResourcesPlugin.getWorkspace().getRoot().getLocation().toString();
+					directoryName = directoryName.concat(aux);
+
+					// List all the files under a directory
+					File directory = new File(directoryName);
+				    // get all the files from a directory
+				    File[] fList = directory.listFiles();
+				    results.append("FEATURES PATH: "+directoryName+"\n\nSIZE FEA: "+fList.length);
+				    for (File file : fList){
+				    	contFEA++;
+				        //results.append("\n#"+contFEA+"["+file.getName()+"] and CLA:\t");
+				        array3.put(file.getName(), listFiles(file.getAbsolutePath()));
+				        FEA.add(file.getName());
+				        //listFiles(file.getAbsolutePath());
+				    }
+				    results.append("\n\n");
+				    
+				    for (Map.Entry<String, ArrayList<String>> aux3 : array3.entrySet()) {
+						results.append("FEA: "+aux3.getKey()+"\nCLASSES: "+aux3.getValue()+"\n\n");
+					}	
 
 					// Gera a lista de todas as classes do projeto selecionado
 					// com o tipo IPackageFragment onde obtenho todas as classes
@@ -364,9 +424,9 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 					
 					geraMaps(packageSelection);
 					
-					for (MethodInvocation node : MI) {
-						getChildren(node,0);
-					}
+					/*for (MethodInvocation node : MI) {
+							getChildren(node,0);
+					}*/
 				} catch (CoreException e) {
 					e.printStackTrace();
 				}
@@ -377,8 +437,8 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		Button btnClear = new Button(shell, SWT.NONE);
 		btnClear.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
-				CLA.clear();MD.clear();MI.clear();
-				array1.clear();array2.clear();
+				CLA.clear();MD.clear();MI.clear();FEA.clear();
+				array1.clear();array2.clear();array3.clear();
 				CLAeMD.clear();MDeMI.clear();
 				results.setText("");
 			}
@@ -389,8 +449,8 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		Button btnClose = new Button(shell, SWT.NONE);
 		btnClose.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
-				CLA.clear();MD.clear();MI.clear();
-				array1.clear();array2.clear();
+				CLA.clear();MD.clear();MI.clear();FEA.clear();
+				array1.clear();array2.clear();array3.clear();
 				CLAeMD.clear();MDeMI.clear();
 				shell.close();
 			}
