@@ -207,6 +207,83 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		return getChildren(children.get(0), cont);
 	}
 	
+	/**
+	 * Separa os MethodInvocations se tiverem outros MI em cadeia
+	 * 
+	 * return 
+	 * @return 
+	 */
+	private ArrayList<ASTNode> breakMI(ASTNode node, int m) {
+		ArrayList<ASTNode> array1 = new ArrayList<ASTNode>();
+		int cont = m;
+		String compara = "[]";
+
+		List<ASTNode> children = new ArrayList<ASTNode>();
+		@SuppressWarnings("rawtypes")
+		List list = node.structuralPropertiesForType();
+
+		for (int i = 0; i < list.size(); i++) {
+			Object child = node.getStructuralProperty((StructuralPropertyDescriptor) list.get(i));
+			if (child instanceof ASTNode) {
+				children.add((ASTNode) child);
+			}
+		}
+
+		String aux = children.toString();
+		
+		if (aux.equals(compara)) {
+			results.append("Número de membros desse método: " + cont + "\n");
+			return array1;
+		}
+		
+		// Aumenta o contador se o nó filho for MethodInvocation ou
+		// SuperMethodInvocation e lista seus métodos componentes, assim
+		// como parâmetros (se houver) de cada método encadeado
+		if (node.getNodeType() == 32) {
+			cont++;
+			MethodInvocation nodev = (MethodInvocation) node;
+			results.append("\tMethodInvocation: "+nodev.getName().toString().trim()+"\n\t\tMembros: "+cont+"\n");
+			//array1.add(nodev);
+			// Lista parâmetros do MethodInvocation
+			if (nodev.arguments().toString().equals(compara) != true) {
+				for (int k = 0; k < nodev.arguments().size(); k++) {
+					results.append("\t\tArgument["+k+"]: "+nodev.arguments().get(k).toString().trim()+"\n");
+					// Verifica se parâmetro é método p/ poder incrementar cont
+					ASTNode param = (ASTNode) nodev.arguments().get(k);
+					if (param.getNodeType() == 32) {
+						cont++;
+						results.append("\t\t\tArg["+k+"] its MethodInvocation!"+"\n\t\t\t\tMembros: "+cont+"\n");
+						//array1.add(param);
+					} else if (param.getNodeType() == 27) {
+						results.append("\t\t\tArg["+k+"] its InfixExpression!\n");
+						cont = cont + extractInfixExpression(param, cont);
+					}
+				}
+			}
+		} else if (node.getNodeType() == 48) {
+			cont++;
+			SuperMethodInvocation nodesv = (SuperMethodInvocation) node;
+			results.append("\tSuperMethodInvocation: "+nodesv.getName().toString().trim()+"\n\t\tMembros: "+cont+"\n");
+			// Lista parâmetros do SuperMethodInvocation
+			if (nodesv.arguments().toString().equals(compara) != true) {
+				for (int k = 0; k < nodesv.arguments().size(); k++) {
+					results.append("\t\tArgument["+k+"]: "+nodesv.arguments().get(k).toString().trim()+"\n");
+					// Verifica se parâmetro é método p/ poder incrementar cont
+					ASTNode param = (ASTNode) nodesv.arguments().get(k);
+					if (param.getNodeType() == 32) {
+						cont++;
+						results.append("\t\t\tArg["+k+"] its MethodInvocation!"+"\n\t\t\t\tMembros: "+cont+"\n");
+					} else if (param.getNodeType() == 27) {
+						results.append("\t\t\tArg[" + k + "] its InfixExpression!\n");
+						cont = cont + extractInfixExpression(param, cont);
+					}
+				}
+			}
+		}
+		// Recursão para encontrar próximo nó (filho do filho)
+		return breakMI(children.get(0), cont);
+	}
+	
 	protected void analyseCLA(ICompilationUnit classe) {
 		// now create the AST for the ICompilationUnit
 		CompilationUnit parse = parse(classe);
@@ -255,9 +332,13 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 	}
 	
 	protected void analyseMI(ArrayList<MethodInvocation> allMI2) {
-			
+		for (MethodInvocation node : allMI2) {
+			getChildren(node,0);
+			breakMI(node,0);
+		}
 	}
 	
+
 	/**
 	 * 
 	 * @param packageSelection
@@ -488,7 +569,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 								+MI.size()+" ||| contMIP = "+contMIP);
 							}
 							
-							//analyseMI(allMI);							
+							analyseMI(allMI);							
 						//} 
 				    //} else {
 				    	//results.append("PASTA 'features' NÃO EXISTE!\nImpossível prosseguir!\n");
