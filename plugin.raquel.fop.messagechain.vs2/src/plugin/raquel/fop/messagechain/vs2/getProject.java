@@ -43,27 +43,22 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 	IProject projectSelection;
 	IPackageFragment[] packageSelection;
 	private static Text results;
-	static Map<String, ArrayList<String>> array1 = new HashMap<String, ArrayList<String>>();
-	static Map<String, ArrayList<String>> array2 = new HashMap<String, ArrayList<String>>();
-	static Map<String, ArrayList<String>> array3 = new HashMap<String, ArrayList<String>>();
-	static Map<ICompilationUnit, ArrayList<MethodDeclaration>> CLAeMD = new HashMap<ICompilationUnit, ArrayList<MethodDeclaration>>();
-	static Map<MethodDeclaration, ArrayList<MethodInvocation>> MDeMI = new HashMap<MethodDeclaration, ArrayList<MethodInvocation>>();
-	static Map<File, ArrayList<File>> FEAeCLA = new HashMap<File, ArrayList<File>>();
+	//static Map<File, ArrayList<File>> FEAeCLA = new HashMap<File, ArrayList<File>>();
+	static Map<ICompilationUnit,String> CLAeFEA = new HashMap<ICompilationUnit,String>();
 	static Map<MethodDeclaration,ICompilationUnit> MDeCLA = new HashMap<MethodDeclaration,ICompilationUnit>();
 	static Map<MethodInvocation,MethodDeclaration> MIeMD = new HashMap<MethodInvocation,MethodDeclaration>();
+	static ArrayList<String> FEA = new ArrayList<String>();
 	static ArrayList<ICompilationUnit> CLA = new ArrayList<ICompilationUnit>();
 	static ArrayList<MethodDeclaration> MD = new ArrayList<MethodDeclaration>();
-	static ArrayList<MethodDeclaration> MD2 = new ArrayList<MethodDeclaration>();
 	static ArrayList<MethodInvocation> MI = new ArrayList<MethodInvocation>();
-	static ArrayList<String> FEA = new ArrayList<String>();
+	static ArrayList<MethodInvocation> allMI = new ArrayList<MethodInvocation>();
 	
 	/**
 	 * Clean all static Maps and ArrayLists
 	 */
 	public void clearAll() {
-		CLA.clear();MD.clear();MI.clear();FEA.clear();MD2.clear();
-		array1.clear();array2.clear();array3.clear();
-		CLAeMD.clear();MDeMI.clear();FEAeCLA.clear();MDeCLA.clear();MIeMD.clear();
+		FEA.clear();CLA.clear();MD.clear();MI.clear();allMI.clear();
+		CLAeFEA.clear();MDeCLA.clear();MIeMD.clear();
 	}
 
 	/**
@@ -220,22 +215,23 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		MethodDeclarationVisitor visitor = new MethodDeclarationVisitor();
 		parse.accept(visitor);
 				
-		results.append("\n\nCLASSE: "+classe.getElementName()+"\nMÉTODOS DECLARADOS: ");
+		//results.append("\n\nCLASSE: "+classe.getElementName()+"\nMÉTODOS DECLARADOS: ");
 		for (MethodDeclaration node : visitor.getExpression()) {
-			String md = node.getName().toString();
-			results.append("[" + md + "]\t");
+			//results.append("[" + node.getName().toString().trim() + "]\t");
 			MDeCLA.put(node, classe);
-			MD2.add(node);
+			MD.add(node);
 		}
 	}
 
 	private void analyseMD(ArrayList<MethodDeclaration> arrayMD) {
-		int contMI = 0;
+		//int contMI = 0;
+		int contNullMI = 0;
 
 		for (MethodDeclaration mdS : arrayMD) {	
-			results.append("\n\nMÉTODO DECLARADO: "+mdS.getName().toString()+"\nMÉTODOS INVOCADOS: ");
+			//results.append("\n\nMÉTODO DECLARADO: "+mdS.getName().toString()+"\nMÉTODOS INVOCADOS: ");
 			if (mdS.getBody() == null) {
-				results.append("Método com corpo nulo");
+				contNullMI++;
+				//results.append("Método com corpo nulo");
 			} else {
 				String bd = mdS.getBody().toString();
 				char body[] = bd.toCharArray();
@@ -246,15 +242,20 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 				parse2.accept(visitor2);
 
 				for (MethodInvocation node : visitor2.getExpression()) {
-					contMI++;
-					//aux.add(node.getParent().toString());
-					results.append("#"+contMI+"["+node.toString()+"]\t");
+					//contMI++;
+					//results.append("#"+contMI+"["+node.toString()+"]\t");
 					MIeMD.put(node, mdS);
 					MI.add(node);
 				}	
 			}		
 		}
-		contMI = 0;
+		//contMI = 0;
+		results.append("\n\nMétodos com corpo nulo: "+contNullMI);
+		contNullMI = 0;
+	}
+	
+	protected void analyseMI(ArrayList<MethodInvocation> allMI2) {
+			
 	}
 	
 	/**
@@ -264,48 +265,49 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 	 */
 	private void geraMaps(IPackageFragment[] packageSelection) throws JavaModelException {			
 		for (IPackageFragment mypackage : packageSelection) {
-			//results.append("PATH PACKAGE: "+mypackage.getPath().toString()+"\n");
 			for (final ICompilationUnit classe : mypackage.getCompilationUnits()) {
-				results.append("PATH CLASS: "+classe.getPath().toString()+"\n");
+				results.append("PATH CLASS: "+classe.getPath().toString().trim()+"\n");
 				CLA.add(classe);
 			}
 		}
 		
-		int contCLA = 0;
-		int contMD = 0;
+		//int contCLA = 0;
+		//int contMD = 0;
 		int contMI = 0;
 		
-		results.append("\nSIZE CLA: "+CLA.size()+"\nCLASSES: ");
+		/*results.append("\nSIZE CLA: "+CLA.size()+"\nCLASSES: ");
 		for (ICompilationUnit cla : CLA) {
 			contCLA++;
 			results.append("#"+contCLA+"["+cla.getElementName()+"]\t");
-		}		
+		}*/		
 		
 		for (ICompilationUnit node : CLA) {
 			analyseCLA(node);
 		}
 		
-		results.append("\n\nTODOS OS MÉTODOS DECLARADOS EM MD2\n");
-		for (MethodDeclaration node : MD2) {
+		/*results.append("\n\nTODOS OS MÉTODOS DECLARADOS EM MD2\n");
+		for (MethodDeclaration node : MD) {
 			contMD++;
 			results.append("CLASSE ORIGINAL: "+MDeCLA.get(node).getElementName()+"\n#"+contMD+"["+node.getName().toString()+"]\n\n");
-		}
+		}*/
 		
-		analyseMD(MD2);
+		analyseMD(MD);
 		
-		results.append("\n\n");
+		/*results.append("\n\n");
 		results.append("SIZE MI: "+MI.size()+"\nMÉTODOS INVOCADOS: ");
 		for(MethodInvocation node : MI) {
 			contMI++;
 			results.append("#"+contMI+"["+node.getParent().toString().trim()+"]\t");
-		}
+		}*/
 		
-		contMI = 0;	
+		//contMI = 0;	
 		results.append("\n\n\nANÁLISE DA ÁRVORE\n\n");
 		for (Map.Entry<MethodInvocation,MethodDeclaration> aux3 : MIeMD.entrySet()) {
 			contMI++;
-			results.append("#"+contMI+" MI: "+aux3.getKey().getParent().toString().trim()+"\n\tSOBE(MD): "+aux3.getValue().getName().toString());
-			results.append("\n\t\tSOBE(CLA): "+MDeCLA.get(aux3.getValue()).getElementName()+"\n\n");
+			results.append("#"+contMI+" MI: "+aux3.getKey().toString().trim()
+					+"\n\tSOBE(MD): "+aux3.getValue().getName().toString().trim()
+					+"\n\t\tSOBE(CLA): "+MDeCLA.get(aux3.getValue()).getElementName()
+					+"\n\n");
 		}
 	} 
 	
@@ -387,6 +389,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 				try {
 					clearAll();
 					results.setText("");
+					int contMIP = 0;
 
 					// Acha a raiz da workspace para criar/carregar o IProject
 					// selecionado pelo usuário
@@ -442,12 +445,11 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 							packageSelection = JavaCore.create(projectSelection).getPackageFragments();					
 							geraMaps(packageSelection);
 					
-							results.append("\n\n");
+							results.append("\n### METHOD INVOCATIONS ###\n");
 							
 							for (IPackageFragment mypackage : packageSelection) {
 								for (final ICompilationUnit classe : mypackage.getCompilationUnits()) {
 									CompilationUnit parse = parse(classe);
-									int contMIP = 0;
 									
 									// Calls the method for visit node in AST e return your information*/
 									MethodInvocationVisitor visitor = new MethodInvocationVisitor();
@@ -456,11 +458,37 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 									for (MethodInvocation node : visitor.getExpression()) {
 										// Take expression and converts to String, write in the screen
 										contMIP++;
-										String mi = node.getParent().toString();
-										results.append("#"+contMIP+"MI: "+mi+"\t");	
+										//String mi = node.getParent().toString().trim();
+										//if (contMIP < 10) {
+											//results.append("\n#0"+contMIP+"\t"+node.toString().trim());
+											//allMI.add(node);
+										//} else {
+											//results.append("\n#"+contMIP+"\t"+node.toString().trim());	
+											allMI.add(node);
+										//}
 									}
 								}
 							}
+							
+							contMIP = 0;
+							
+							for (MethodInvocation auxi : allMI) {
+								// Take expression and converts to String, write in the screen
+								contMIP++;
+								//String mi = node.getParent().toString().trim();
+								if (contMIP < 10) {
+									results.append("\n#0"+contMIP+"\t "+auxi.toString().trim());
+								} else {
+									results.append("\n#"+contMIP+"\t "+auxi.toString().trim());	
+								}
+							}
+							
+							if (MI.size() != contMIP) {
+								results.append("\n\nMÉTODOS INVOCADOS DEU DIFERENTE!\nMI = "
+								+MI.size()+" ||| contMIP = "+contMIP);
+							}
+							
+							//analyseMI(allMI);							
 						//} 
 				    //} else {
 				    	//results.append("PASTA 'features' NÃO EXISTE!\nImpossível prosseguir!\n");
