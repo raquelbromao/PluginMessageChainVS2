@@ -2,7 +2,6 @@ package plugin.raquel.fop.messagechain.vs2;
 
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.IWorkbenchWindowActionDelegate;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -262,10 +261,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 	 * @param packageSelection
 	 * @throws JavaModelException
 	 */
-	private void geraMaps(IPackageFragment[] packageSelection) throws JavaModelException {		
-		//ArrayList<ArrayList<MethodDeclaration>> nodes = new ArrayList<ArrayList<MethodDeclaration>>();
-		//ArrayList<MethodDeclaration> nodeList = new ArrayList<MethodDeclaration>();
-		
+	private void geraMaps(IPackageFragment[] packageSelection) throws JavaModelException {			
 		for (IPackageFragment mypackage : packageSelection) {
 			//results.append("PATH PACKAGE: "+mypackage.getPath().toString()+"\n");
 			for (final ICompilationUnit classe : mypackage.getCompilationUnits()) {
@@ -446,9 +442,24 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 							geraMaps(packageSelection);
 					
 							results.append("\n\n");
-							/*for (MethodDeclaration node : MD) {
-									analyseMD(node);
-							}*/
+							
+							for (IPackageFragment mypackage : packageSelection) {
+								for (final ICompilationUnit classe : mypackage.getCompilationUnits()) {
+									CompilationUnit parse = parse(classe);
+									int contMIP = 0;
+									
+									// Calls the method for visit node in AST e return your information*/
+									MethodInvocationVisitor visitor = new MethodInvocationVisitor();
+									parse.accept(visitor);
+									
+									for (MethodInvocation node : visitor.getExpression()) {
+										// Take expression and converts to String, write in the screen
+										contMIP++;
+										String mi = node.getParent().toString();
+										results.append("#"+contMIP+"MI: "+mi+"\t");	
+									}
+								}
+							}
 						//} 
 				    //} else {
 				    	//results.append("PASTA 'features' NÃO EXISTE!\nImpossível prosseguir!\n");
@@ -480,7 +491,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		btnClose.setText("Close");
 		btnClose.setBounds(541, 24, 46, 25);
 		
-		results = new Text(shell, SWT.MULTI | SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
+		results = new Text(shell, SWT.WRAP);
 		results.setBounds(10, 55, 642, 370);
 
 		shell.pack();
