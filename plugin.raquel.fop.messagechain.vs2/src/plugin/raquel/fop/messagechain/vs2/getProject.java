@@ -138,6 +138,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		String compara = "[]";
 
 		List<ASTNode> children = new ArrayList<ASTNode>();
+		@SuppressWarnings("rawtypes")
 		List list = node.structuralPropertiesForType();
 
 		for (int i = 0; i < list.size(); i++) {
@@ -403,14 +404,14 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 							+"\nProject Path: "+root.getProject(nameProject).getFullPath().toString()
 							+"\n\n");*/
 					
-					int contFEA = 0;
+					//int contFEA = 0;
 					String aux = projectSelection.getFile("/features").getFullPath().toString();
 					
 					String directoryName = ResourcesPlugin.getWorkspace().getRoot().getLocation().toString();
 					directoryName = directoryName.concat(aux);
 
 					// List all the files under a directory
-					File directory = new File(directoryName);
+					//File directory = new File(directoryName);
 					
 					// VERIFICA A EXISTÊNCIA DA PASTA FEATURES NO PROJETO
 					//if (directory.exists()) {
@@ -491,7 +492,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		btnClose.setText("Close");
 		btnClose.setBounds(541, 24, 46, 25);
 		
-		results = new Text(shell, SWT.WRAP);
+		results = new Text(shell, SWT.MULTI | SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);
 		results.setBounds(10, 55, 642, 370);
 
 		shell.pack();
