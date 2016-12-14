@@ -5,7 +5,6 @@ import org.eclipse.ui.IWorkbenchWindowActionDelegate;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IWorkspace;
@@ -17,16 +16,13 @@ import org.eclipse.jdt.core.IPackageFragment;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.dom.AST;
-import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTParser;
-import org.eclipse.jdt.core.dom.Assignment;
 import org.eclipse.jdt.core.dom.Block;
 import org.eclipse.jdt.core.dom.CompilationUnit;
-import org.eclipse.jdt.core.dom.InfixExpression;
+import org.eclipse.jdt.core.dom.Expression;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.MethodInvocation;
-import org.eclipse.jdt.core.dom.StructuralPropertyDescriptor;
-import org.eclipse.jdt.core.dom.SuperMethodInvocation;
+import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.swt.SWT;
@@ -45,10 +41,12 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 	private static Text results;
 	//static Map<File, ArrayList<File>> FEAeCLA = new HashMap<File, ArrayList<File>>();
 	static Map<ICompilationUnit,String> CLAeFEA = new HashMap<ICompilationUnit,String>();
+	static Map<TypeDeclaration,String> TDeFEA = new HashMap<TypeDeclaration,String>();
 	static Map<MethodDeclaration,ICompilationUnit> MDeCLA = new HashMap<MethodDeclaration,ICompilationUnit>();
 	static Map<MethodInvocation,MethodDeclaration> MIeMD = new HashMap<MethodInvocation,MethodDeclaration>();
 	static ArrayList<String> FEA = new ArrayList<String>();
 	static ArrayList<ICompilationUnit> CLA = new ArrayList<ICompilationUnit>();
+	static ArrayList<TypeDeclaration> TD = new ArrayList<TypeDeclaration>();
 	static ArrayList<MethodDeclaration> MD = new ArrayList<MethodDeclaration>();
 	static ArrayList<MethodInvocation> MI = new ArrayList<MethodInvocation>();
 	static ArrayList<MethodInvocation> allMI = new ArrayList<MethodInvocation>();
@@ -58,7 +56,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 	 */
 	public void clearAll() {
 		FEA.clear();CLA.clear();MD.clear();MI.clear();allMI.clear();
-		CLAeFEA.clear();MDeCLA.clear();MIeMD.clear();
+		CLAeFEA.clear();TDeFEA.clear();MDeCLA.clear();MIeMD.clear();
 	}
 
 	/**
@@ -69,221 +67,6 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		return projects;
 	}
 	
-	public static int extractInfixExpression(ASTNode node, int cont) {
-		int k = 0;
-
-		InfixExpression aux = (InfixExpression) node;
-
-		results.append("\tNode: "+node.toString() 
-					+"\n\t\tLeft Side: "+aux.getLeftOperand().toString()
-					+"\n\t\t\tType LeftSide: "+aux.getLeftOperand().getNodeType() 
-					+"\n\t\tRight Side: "+aux.getRightOperand().toString() 
-					+"\n\t\t\tType RightSide: "+aux.getRightOperand().getNodeType()
-					+"\n");
-
-		if (aux.getLeftOperand().getNodeType() == 32) {
-			results.append("\t\t\tLeftSide its MethodInvocation!" 
-						+"\n\t\t\t\tNMCS -> "+(cont + 1) 
-						+"\n");
-			k = k + getChildren(aux.getLeftOperand(), 0);
-		}
-
-		if (aux.getRightOperand().getNodeType() == 32) {
-			results.append("\t\t\tRightSide its MethodInvocation!" 
-						+"\n\t\t\t\tNMCS -> "+(cont + 1) 
-						+"\n");
-			k = k + getChildren(aux.getRightOperand(), 0);
-		}
-
-		return k;
-	}
-
-	public static int extractAssignment(Assignment node) {
-		int k = 0;
-
-		results.append("\tNode: "+node.toString() 
-					+"\n\t\tLeft Side: "+node.getLeftHandSide().toString()
-					+"\n\t\t\tType LeftSide: "+node.getLeftHandSide().getNodeType() 
-					+"\n\t\tRight Side: "+node.getRightHandSide().toString() 
-					+"\n\t\t\tType RightSide: "+node.getRightHandSide().getNodeType()
-					+"\n\n");
-
-		if (node.getLeftHandSide().getNodeType() == 32) {
-			results.append("\t\t\tLeftSide its MethodInvocation!\n");
-			k = getChildren(node.getLeftHandSide(), 0);
-			//NMCS = NMCS + k;
-		} 
-		
-		if (node.getRightHandSide().getNodeType() == 32) {
-			results.append("\t\t\tRightSide its MethodInvocation!\n");
-			k = getChildren(node.getRightHandSide(), 0);
-			//NMCS = NMCS + k;
-		} 
-
-		if (node.getRightHandSide().getNodeType() == 27) {
-			k = extractInfixExpression(node.getRightHandSide(), 0);
-			//NMCS = NMCS + k;
-		}
-
-		return k;
-	}
-
-	public static int getChildren(ASTNode node, int n) {
-		int cont = n;
-		String compara = "[]";
-
-		List<ASTNode> children = new ArrayList<ASTNode>();
-		@SuppressWarnings("rawtypes")
-		List list = node.structuralPropertiesForType();
-
-		for (int i = 0; i < list.size(); i++) {
-			Object child = node.getStructuralProperty((StructuralPropertyDescriptor) list.get(i));
-			if (child instanceof ASTNode) {
-				children.add((ASTNode) child);
-			}
-		}
-
-		String teste = children.toString();
-		// results.append("MethodInvocation Node:
-		// "+children.get(0).toString()+"\nNMCS: "+cont+"\n");
-
-		// Se a string do filho for igual a [] -> CHEGOU AO FIM
-		// e retorna resultado do contador para analyseClass
-		if (teste.equals(compara)) {
-			results.append("\n---> NMCS = " + cont + "\n");
-			return cont;
-		}
-
-		// Aumenta o contador se o nó filho for MethodInvocation ou
-		// SuperMethodInvocation e lista seus métodos componentes, assim
-		// como parâmetros (se houver) de cada método encadeado
-		if (node.getNodeType() == 32) {
-			cont++;
-			MethodInvocation nodev = (MethodInvocation) node;
-			results.append("\tMethodInvocation: " + nodev.getName() + "\n\t\tNMCS -> " + cont + "\n");
-			// Lista parâmetros do MethodInvocation
-			if (nodev.arguments().toString().equals(compara) != true) {
-				for (int k = 0; k < nodev.arguments().size(); k++) {
-					results.append("\t\tArgument[" + k + "]: " + nodev.arguments().get(k).toString() + "\n");
-					// Verifica se parâmetro é método p/ poder incrementar cont
-					// e,
-					// consequentemente, NMCS
-					ASTNode param = (ASTNode) nodev.arguments().get(k);
-					if (param.getNodeType() == 32) {
-						cont++;
-						results.append(
-								"\t\t\tArg[" + k + "] its MethodInvocation!" + "\n\t\t\t\tNMCS -> " + cont + "\n");
-					} else if (param.getNodeType() == 27) {
-						results.append("\t\t\tArg[" + k + "] its InfixExpression!\n");
-						cont = cont + extractInfixExpression(param, cont);
-					}
-				}
-			}
-		} else if (node.getNodeType() == 48) {
-			cont++;
-			SuperMethodInvocation nodesv = (SuperMethodInvocation) node;
-			results.append("\tSuperMethodInvocation: " + nodesv.getName() + "\n\t\tNMCS -> " + cont + "\n");
-			// Lista parâmetros do SuperMethodInvocation
-			if (nodesv.arguments().toString().equals(compara) != true) {
-				for (int k = 0; k < nodesv.arguments().size(); k++) {
-					results.append("\t\tArgument[" + k + "]: " + nodesv.arguments().get(k).toString() + "\n");
-					// Verifica se parâmetro é método p/ poder incrementar cont
-					// e,
-					// consequentemente NMCS
-					ASTNode param = (ASTNode) nodesv.arguments().get(k);
-					if (param.getNodeType() == 32) {
-						cont++;
-						results.append(
-								"\t\t\tArg[" + k + "] its MethodInvocation!" + "\n\t\t\t\tNMCS -> " + cont + "\n");
-					} else if (param.getNodeType() == 27) {
-						results.append("\t\t\tArg[" + k + "] its InfixExpression!\n");
-						cont = cont + extractInfixExpression(param, cont);
-					}
-				}
-			}
-		}
-
-		// Recursão para encontrar próximo nó (filho do filho)
-		return getChildren(children.get(0), cont);
-	}
-	
-	/**
-	 * Separa os MethodInvocations se tiverem outros MI em cadeia
-	 * 
-	 * return 
-	 * @return 
-	 */
-	private ArrayList<ASTNode> breakMI(ASTNode node, int m) {
-		ArrayList<ASTNode> array1 = new ArrayList<ASTNode>();
-		int cont = m;
-		String compara = "[]";
-
-		List<ASTNode> children = new ArrayList<ASTNode>();
-		@SuppressWarnings("rawtypes")
-		List list = node.structuralPropertiesForType();
-
-		for (int i = 0; i < list.size(); i++) {
-			Object child = node.getStructuralProperty((StructuralPropertyDescriptor) list.get(i));
-			if (child instanceof ASTNode) {
-				children.add((ASTNode) child);
-			}
-		}
-
-		String aux = children.toString();
-		
-		if (aux.equals(compara)) {
-			results.append("Número de membros desse método: " + cont + "\n");
-			return array1;
-		}
-		
-		// Aumenta o contador se o nó filho for MethodInvocation ou
-		// SuperMethodInvocation e lista seus métodos componentes, assim
-		// como parâmetros (se houver) de cada método encadeado
-		if (node.getNodeType() == 32) {
-			cont++;
-			MethodInvocation nodev = (MethodInvocation) node;
-			results.append("\tMethodInvocation: "+nodev.getName().toString().trim()+"\n\t\tMembros: "+cont+"\n");
-			//array1.add(nodev);
-			// Lista parâmetros do MethodInvocation
-			if (nodev.arguments().toString().equals(compara) != true) {
-				for (int k = 0; k < nodev.arguments().size(); k++) {
-					results.append("\t\tArgument["+k+"]: "+nodev.arguments().get(k).toString().trim()+"\n");
-					// Verifica se parâmetro é método p/ poder incrementar cont
-					ASTNode param = (ASTNode) nodev.arguments().get(k);
-					if (param.getNodeType() == 32) {
-						cont++;
-						results.append("\t\t\tArg["+k+"] its MethodInvocation!"+"\n\t\t\t\tMembros: "+cont+"\n");
-						//array1.add(param);
-					} else if (param.getNodeType() == 27) {
-						results.append("\t\t\tArg["+k+"] its InfixExpression!\n");
-						cont = cont + extractInfixExpression(param, cont);
-					}
-				}
-			}
-		} else if (node.getNodeType() == 48) {
-			cont++;
-			SuperMethodInvocation nodesv = (SuperMethodInvocation) node;
-			results.append("\tSuperMethodInvocation: "+nodesv.getName().toString().trim()+"\n\t\tMembros: "+cont+"\n");
-			// Lista parâmetros do SuperMethodInvocation
-			if (nodesv.arguments().toString().equals(compara) != true) {
-				for (int k = 0; k < nodesv.arguments().size(); k++) {
-					results.append("\t\tArgument["+k+"]: "+nodesv.arguments().get(k).toString().trim()+"\n");
-					// Verifica se parâmetro é método p/ poder incrementar cont
-					ASTNode param = (ASTNode) nodesv.arguments().get(k);
-					if (param.getNodeType() == 32) {
-						cont++;
-						results.append("\t\t\tArg["+k+"] its MethodInvocation!"+"\n\t\t\t\tMembros: "+cont+"\n");
-					} else if (param.getNodeType() == 27) {
-						results.append("\t\t\tArg[" + k + "] its InfixExpression!\n");
-						cont = cont + extractInfixExpression(param, cont);
-					}
-				}
-			}
-		}
-		// Recursão para encontrar próximo nó (filho do filho)
-		return breakMI(children.get(0), cont);
-	}
-	
 	protected void analyseCLA(ICompilationUnit classe) {
 		// now create the AST for the ICompilationUnit
 		CompilationUnit parse = parse(classe);
@@ -292,9 +75,19 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		MethodDeclarationVisitor visitor = new MethodDeclarationVisitor();
 		parse.accept(visitor);
 				
-		//results.append("\n\nCLASSE: "+classe.getElementName()+"\nMÉTODOS DECLARADOS: ");
+		TypeDeclarationVisitor visitor2 = new TypeDeclarationVisitor();
+		parse.accept(visitor2);
+		
+		results.append("\n\n.JAK: "+classe.getElementName()+"\n\tTIPOS DECLARADOS: ");
+		for (TypeDeclaration node2 : visitor2.getExpression()) {
+			results.append("[" + node2.getName().toString().trim() + "]\t");
+			TDeFEA.put(node2, CLAeFEA.get(classe));
+			TD.add(node2);
+		}
+		
+		results.append("\n\n.JAK: "+classe.getElementName()+"\n\tMÉTODOS DECLARADOS: ");
 		for (MethodDeclaration node : visitor.getExpression()) {
-			//results.append("[" + node.getName().toString().trim() + "]\t");
+			results.append("[" + node.getName().toString().trim() + "]\t");
 			MDeCLA.put(node, classe);
 			MD.add(node);
 		}
@@ -332,13 +125,90 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 	}
 	
 	protected void analyseMI(ArrayList<MethodInvocation> allMI2) {
-		for (MethodInvocation node : allMI2) {
-			getChildren(node,0);
-			breakMI(node,0);
+		ArrayList<String> aux_md = new ArrayList<String>();
+		//breakMI(allMI2);
+		
+		for (MethodDeclaration n : MD) {
+			aux_md.add(n.getName().toString().trim());
 		}
+		
+		//results.append("\n\n### MI QUE MD CONTEM\n");			
+		for (MethodInvocation m : allMI2) {				
+				ArrayList<MethodInvocation> aux = breakMI2(m);
+				for (MethodInvocation teste : aux) {
+					results.append("\n\t\tO membro do MC ["+teste.getName().toString().trim()
+								+"] pertence ao array de MD do projeto? "+aux_md.contains(teste.getName().toString().trim())
+								+"\n");
+					if (aux_md.contains(teste.getName().toString().trim())) {
+						results.append("Vai pra próxima etapa: ANÁLISE DO SEU CORPO!");
+					}
+				}
+		}
+		results.append("\n\n### FIM ANALYSE MI ###");
 	}
 	
+	private ArrayList<MethodInvocation> breakMI2(MethodInvocation node) {
+		int NMCS = 0;		
+		ArrayList<MethodInvocation> subMI = new ArrayList<MethodInvocation>();
+		int contMembers = 0;
+		
+		results.append("\n\n"+node.toString().trim()+"\n");
+		String exp = node.toString().trim();
+		char expression[] = exp.toCharArray();
+		Expression parse2 = parseMI(expression);
+			
+		// Calls the method for visit node in AST e return your information
+		MethodInvocationVisitor2 visitor = new MethodInvocationVisitor2();
+		parse2.accept(visitor);
+		
+		for (MethodInvocation min : visitor.getExpression()) {
+			contMembers++;
+			subMI.add(min);
+			results.append("\t# "+min.getName().toString().trim()+"\n");
+		}
+		
+		results.append("\t\tNMCS = "+contMembers);
+		NMCS = NMCS + contMembers;
+		results.append("\n\t\tARRAY =");
+		for (MethodInvocation teste2 : subMI) {
+			results.append("\t["+teste2.getName().toString().trim()+"]");
+		}
+		
+		return subMI;
+	}
+	
+	private void breakMI(ArrayList<MethodInvocation> allMI2) {
+		int NMCS = 0;
+		
+		for (MethodInvocation teste : allMI2) {
+			ArrayList<MethodInvocation> subMI = new ArrayList<MethodInvocation>();
+			int contMembers = 0;
+			results.append("\n\n"+teste.toString().trim()+"\n");
+			String exp = teste.toString().trim();
+			char expression[] = exp.toCharArray();
+			Expression parse2 = parseMI(expression);
+				
+			// Calls the method for visit node in AST e return your information
+			MethodInvocationVisitor2 visitor = new MethodInvocationVisitor2();
+			parse2.accept(visitor);
 
+			for (MethodInvocation min : visitor.getExpression()) {
+				contMembers++;
+				subMI.add(min);
+				results.append("\t# "+min.getName().toString().trim()+"\n");
+			}
+			
+			results.append("\t\tNMCS = "+contMembers);
+			NMCS = NMCS + contMembers;
+			results.append("\n\t\tARRAY =");
+			for (MethodInvocation teste2 : subMI) {
+				results.append("\t["+teste2.getName().toString().trim()+"]");
+			}
+		}
+		results.append("\n\n\nNMCS total = "+NMCS+"\n\n\n");
+		//return subMI;
+	}
+	
 	/**
 	 * 
 	 * @param packageSelection
@@ -354,7 +224,6 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		
 		//int contCLA = 0;
 		//int contMD = 0;
-		int contMI = 0;
 		
 		/*results.append("\nSIZE CLA: "+CLA.size()+"\nCLASSES: ");
 		for (ICompilationUnit cla : CLA) {
@@ -381,7 +250,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 			results.append("#"+contMI+"["+node.getParent().toString().trim()+"]\t");
 		}*/
 		
-		//contMI = 0;	
+		/*int contMI = 0;	
 		results.append("\n\n\nANÁLISE DA ÁRVORE\n\n");
 		for (Map.Entry<MethodInvocation,MethodDeclaration> aux3 : MIeMD.entrySet()) {
 			contMI++;
@@ -389,8 +258,23 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 					+"\n\tSOBE(MD): "+aux3.getValue().getName().toString().trim()
 					+"\n\t\tSOBE(CLA): "+MDeCLA.get(aux3.getValue()).getElementName()
 					+"\n\n");
-		}
+		}*/
 	} 
+	
+	/**
+	 * Reads a char[] of Expression of MethodInvocation node and creates the AST DOM for
+	 * manipulating the Java source
+	 * 
+	 * @param unit
+	 * @return
+	 */
+	private static Expression parseMI(char[] unit) {
+		ASTParser parser = ASTParser.newParser(AST.JLS8);
+		parser.setKind(ASTParser.K_EXPRESSION);
+		parser.setSource(unit);
+		parser.setResolveBindings(true);
+		return (Expression) parser.createAST(null);
+	}
 	
 	/**
 	 * Reads a char[] of Block of MethodDeclaration and creates the AST DOM for
@@ -468,8 +352,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		btnApply.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
 				try {
-					clearAll();
-					results.setText("");
+					clearAll();results.setText("");
 					int contMIP = 0;
 
 					// Acha a raiz da workspace para criar/carregar o IProject
@@ -526,7 +409,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 							packageSelection = JavaCore.create(projectSelection).getPackageFragments();					
 							geraMaps(packageSelection);
 					
-							results.append("\n### METHOD INVOCATIONS ###\n");
+							results.append("\n\n### METHOD INVOCATIONS ###\n");
 							
 							for (IPackageFragment mypackage : packageSelection) {
 								for (final ICompilationUnit classe : mypackage.getCompilationUnits()) {
@@ -539,36 +422,41 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 									for (MethodInvocation node : visitor.getExpression()) {
 										// Take expression and converts to String, write in the screen
 										contMIP++;
-										//String mi = node.getParent().toString().trim();
-										//if (contMIP < 10) {
-											//results.append("\n#0"+contMIP+"\t"+node.toString().trim());
-											//allMI.add(node);
-										//} else {
-											//results.append("\n#"+contMIP+"\t"+node.toString().trim());	
+										String mi = node.getParent().toString().trim();
+										if (contMIP < 10) {
+											results.append("\n#0"+contMIP+"\t"+node.toString().trim());
 											allMI.add(node);
-										//}
+										} else {
+											results.append("\n#"+contMIP+"\t"+node.toString().trim());	
+											allMI.add(node);
+										}
 									}
 								}
 							}
 							
 							contMIP = 0;
 							
-							for (MethodInvocation auxi : allMI) {
+							/*for (MethodInvocation auxi : allMI) {
 								// Take expression and converts to String, write in the screen
 								contMIP++;
 								//String mi = node.getParent().toString().trim();
 								if (contMIP < 10) {
-									results.append("\n#0"+contMIP+"\t "+auxi.toString().trim());
+									results.append("\n#0"+contMIP+"\t "
+											+auxi.getExpression().toString().trim()
+											+"\t "+auxi.toString().trim());
 								} else {
-									results.append("\n#"+contMIP+"\t "+auxi.toString().trim());	
+									results.append("\n#"+contMIP+"\t "
+											+auxi.getExpression().toString().trim()
+											+"\t "+auxi.toString().trim());
 								}
-							}
+							}*/
 							
 							if (MI.size() != contMIP) {
 								results.append("\n\nMÉTODOS INVOCADOS DEU DIFERENTE!\nMI = "
 								+MI.size()+" ||| contMIP = "+contMIP);
 							}
 							
+							results.append("\n\n### METHOD INVOCATION PARSE AND VISIT TEST ###");							
 							analyseMI(allMI);							
 						//} 
 				    //} else {
@@ -584,8 +472,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		Button btnClear = new Button(shell, SWT.NONE);
 		btnClear.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
-				clearAll();
-				results.setText("");
+				clearAll();results.setText("");
 			}
 		});
 		btnClear.setBounds(489, 24, 46, 25);
@@ -594,8 +481,7 @@ public class getProject implements IWorkbenchWindowActionDelegate {
 		Button btnClose = new Button(shell, SWT.NONE);
 		btnClose.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
-				clearAll();
-				shell.close();
+				clearAll();shell.close();
 			}
 		});
 		btnClose.setText("Close");
